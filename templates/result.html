@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>檢核結果</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-8">
+  <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8">
+    <h1 class="text-xl font-bold mb-4">檢核結果（{{ year }} 學年度規則）</h1>
+
+    {% if passed %}
+    <div class="bg-green-100 text-green-800 rounded-md p-4 mb-4 font-medium">
+      ✅ 已達畢業學分門檻（{{ total_credit }} / {{ required_total }} 學分）
+    </div>
+    {% else %}
+    <div class="bg-red-100 text-red-800 rounded-md p-4 mb-4 font-medium">
+      ❌ 尚未達畢業學分門檻（{{ total_credit }} / {{ required_total }} 學分）
+    </div>
+    {% endif %}
+
+    {% if courses %}
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="border-b text-left">
+          <th class="py-1 pr-2">課程名稱</th>
+          <th class="py-1 pr-2">學分</th>
+          <th class="py-1 pr-2">成績</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in courses %}
+        <tr class="border-b">
+          <td class="py-1 pr-2">{{ c.name }}</td>
+          <td class="py-1 pr-2">{{ c.credit }}</td>
+          <td class="py-1 pr-2">{{ c.grade }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm">
+      沒有解析到任何課程資料，可能是這份 PDF 是掃描版（圖片型）、或表格欄位標題與「課程/學分/成績」不同，需要再調整解析邏輯。
+    </p>
+    {% endif %}
+
+    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">← 重新上傳</a>
+  </div>
+</body>
+</html>
