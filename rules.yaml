@@ -1,7 +1,122 @@
 # 各學年度畢業學分門檻，新學年度只需在這裡新增一個區塊，不用改程式碼
-"2024":
-  total_credits: 128
-"2025":
-  total_credits: 128
-"2026":
-  total_credits: 130
+# 學年度一律用民國紀年（例如 114 = 民國114學年度）
+
+# 資料來源：畢業門檻/114學年度入學新生適用.pdf（理學院學士班化學領域應修科目表）
+# 該文件只列出「化學領域專長」的必修/選修科目與學分，沒有列出全校畢業總學分數字，
+# total_credits 先留 0，等拿到完整畢業學分規定後再補上。
+#
+# 備註（來自原始文件）：
+#   1. 第一領域專長需修習至少 33 學分（必修 27-29 學分）；英文組第一領域專長需修習至少 27-29 學分（必修 27-29 學分）。
+#   2. 第二領域專長需修習至少 20 學分（必修 15 學分）；英文組第二領域專長需修習至少 15 學分（必修 15 學分）。
+#   3. 若修習並通過「第一領域專長必修」之「物理化學」或「無機化學」任一組課程後，其餘學分得列入化學領域專長選修學分。
+'114':
+  total_credits: 0
+  required_courses:
+  - name: 分析化學
+    code: CM2021/CM2022
+    credits: 7
+    category: 必修
+    note: ''
+  - name: 有機化學
+    code: CM2031/CM2032
+    credits: 8
+    category: 必修
+    note: ''
+  - name: 物理化學
+    code: CM3041/CM3042
+    credits: 8
+    category: 必修
+    note: 與無機化學二擇一
+  - name: 無機化學
+    code: CM3051/CM3052
+    credits: 6
+    category: 必修
+    note: 與物理化學二擇一
+  - name: 分析與有機化學實驗
+    code: CM2081/CM2082
+    credits: 6
+    category: 必修
+    note: ''
+  - name: 生物化學(I)(II)
+    code: CM3067/CM3068
+    credits: 6
+    category: 選修
+    note: ''
+  - name: 高分子化學產業(I)(II)
+    code: CM4033/CM4034
+    credits: 2
+    category: 選修
+    note: ''
+  - name: 過渡金屬化學
+    code: CM4035
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 儀器分析
+    code: CM6025
+    credits: 4
+    category: 選修
+    note: ''
+  - name: 有機光譜分析
+    code: CM6034
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 有機化學特論
+    code: CM6036
+    credits: 2
+    category: 選修
+    note: ''
+  - name: 計算化學
+    code: CM6054
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 共軛高分子化學與應用
+    code: CM6069
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 奈米材料結構
+    code: CM6075
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 環境化學(I)(II)
+    code: CM6028/CM6029
+    credits: 4
+    category: 選修
+    note: ''
+  - name: 高等分析化學
+    code: CM6021
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 高等有機化學
+    code: CM6031
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 高等物理化學
+    code: CM6041
+    credits: 3
+    category: 選修
+    note: ''
+  - name: 高等無機化學
+    code: CM6051
+    credits: 3
+    category: 選修
+    note: ''
+# 以下四個學年度目前還沒有拿到正式的應修科目表，先建立空白區塊，之後有資料再用管理頁面補上
+'113':
+  total_credits: 0
+  required_courses: []
+'112':
+  total_credits: 0
+  required_courses: []
+'111':
+  total_credits: 0
+  required_courses: []
+'110':
+  total_credits: 0
+  required_courses: []

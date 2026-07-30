@@ -3,31 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>畢業學分檢核系統</title>
+  <title>化材系畢業學分檢核系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center">
-  <div class="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
-    <h1 class="text-xl font-bold mb-6 text-center">畢業學分檢核系統</h1>
-    <form action="/check" method="post" enctype="multipart/form-data" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
-        <select name="year" class="w-full border rounded-md p-2">
-          {% for y in years %}
-          <option value="{{ y }}">{{ y }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">上傳成績單 (PDF)</label>
-        <input type="file" name="file" accept="application/pdf" required
-               class="w-full border rounded-md p-2 text-sm" />
-      </div>
-      <button type="submit"
-              class="w-full bg-blue-600 text-white font-medium py-2 rounded-md hover:bg-blue-700">
-        檢核畢業資格
-      </button>
-    </form>
+<body class="bg-gray-50 min-h-screen">
+  <header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm">
+    <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
+    <div class="flex items-center gap-3">
+      <a href="/help" class="text-sm text-gray-600 hover:underline">使用說明</a>
+      <a href="/admin"
+         class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">
+        調整應修科目表
+      </a>
+    </div>
+  </header>
+
+  <div class="flex items-center justify-center p-8">
+    <div class="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
+      <h1 class="text-xl font-bold mb-6 text-center">上傳成績單檢核畢業資格</h1>
+      <form action="/check" method="post" enctype="multipart/form-data" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
+          <select name="year" class="w-full border rounded-md p-2">
+            {% for y in years %}
+            <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">上傳成績單 (PDF)</label>
+          <input type="file" name="file" accept="application/pdf"
+                 class="w-full border rounded-md p-2 text-sm" />
+          <p class="text-xs text-gray-400 mt-1">開發階段：先不上傳也可以，會直接顯示預覽結果</p>
+        </div>
+        <button type="submit"
+                class="w-full bg-blue-600 text-white font-medium py-2 rounded-md hover:bg-blue-700">
+          檢核畢業資格
+        </button>
+      </form>
+    </div>
   </div>
 </body>
 </html>
