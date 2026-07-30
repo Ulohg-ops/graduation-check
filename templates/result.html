@@ -3,12 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>檢核結果</title>
+  <title>化材系畢業學分檢核系統 - 檢核結果</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-8">
-  <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8">
+<body class="bg-gray-50 min-h-screen">
+  <header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm">
+    <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
+    <div class="flex items-center gap-3">
+      <a href="/help" class="text-sm text-gray-600 hover:underline">使用說明</a>
+      <a href="/" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">← 回首頁</a>
+    </div>
+  </header>
+
+  <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
     <h1 class="text-xl font-bold mb-4">檢核結果（{{ year }} 學年度規則）</h1>
+
+    {% if is_mock %}
+    <div class="bg-yellow-100 text-yellow-800 rounded-md p-3 mb-4 text-sm">
+      ⚠️ 目前顯示的是預覽用假資料（尚未上傳真實成績單，或還沒串接正式的解析比對邏輯）。
+    </div>
+    {% endif %}
 
     {% if passed %}
     <div class="bg-green-100 text-green-800 rounded-md p-4 mb-4 font-medium">
