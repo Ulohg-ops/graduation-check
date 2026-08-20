@@ -15,51 +15,195 @@
     </div>
   </header>
 
-  <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
-    <h1 class="text-xl font-bold mb-4">檢核結果（{{ year }} 學年度規則）</h1>
-
-    {% if is_mock %}
-    <div class="bg-yellow-100 text-yellow-800 rounded-md p-3 mb-4 text-sm">
-      ⚠️ 目前顯示的是預覽用假資料（尚未上傳真實成績單，或還沒串接正式的解析比對邏輯）。
+  <div class="max-w-3xl mx-auto my-8 space-y-6">
+    <div class="flex justify-between items-center flex-wrap gap-3">
+      <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）</h1>
+      {% if not is_mock and results|length > 1 %}
+      <button id="download-all-csv"
+              class="text-sm bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700">
+        下載全部 {{ results|length }} 份結果 (CSV)
+      </button>
+      {% endif %}
     </div>
-    {% endif %}
 
-    {% if passed %}
-    <div class="bg-green-100 text-green-800 rounded-md p-4 mb-4 font-medium">
-      ✅ 已達畢業學分門檻（{{ total_credit }} / {{ required_total }} 學分）
-    </div>
-    {% else %}
-    <div class="bg-red-100 text-red-800 rounded-md p-4 mb-4 font-medium">
-      ❌ 尚未達畢業學分門檻（{{ total_credit }} / {{ required_total }} 學分）
-    </div>
-    {% endif %}
-
-    {% if courses %}
-    <table class="w-full text-sm border-collapse">
-      <thead>
-        <tr class="border-b text-left">
-          <th class="py-1 pr-2">課程名稱</th>
-          <th class="py-1 pr-2">學分</th>
-          <th class="py-1 pr-2">成績</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in courses %}
-        <tr class="border-b">
-          <td class="py-1 pr-2">{{ c.name }}</td>
-          <td class="py-1 pr-2">{{ c.credit }}</td>
-          <td class="py-1 pr-2">{{ c.grade }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-gray-500 text-sm">
-      沒有解析到任何課程資料，可能是這份 PDF 是掃描版（圖片型）、或表格欄位標題與「課程/學分/成績」不同，需要再調整解析邏輯。
+    {% if not is_mock and results|length > 1 %}
+    <p class="text-xs text-gray-500 -mt-4">
+      「下載全部」會把這 {{ results|length }} 份成績單的結果合併成一個CSV檔（用「檔案名稱」欄位分開）；
+      每份結果卡片右上角的「下載」則只匯出該份自己的結果。
     </p>
     {% endif %}
 
-    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">← 重新上傳</a>
+    {% if is_mock %}
+    <div class="bg-yellow-100 text-yellow-800 rounded-md p-3 text-sm">
+      ⚠️ 目前顯示的是預覽用假資料（尚未上傳真實成績單）。
+    </div>
+    {% endif %}
+
+    {% for r in results %}
+    <div class="bg-white shadow-md rounded-lg p-6">
+      <div class="flex justify-between items-start gap-3 mb-3">
+        <h2 class="font-medium text-gray-800 break-all">{{ r.filename }}</h2>
+        {% if not is_mock %}
+        <button class="download-one-csv text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 whitespace-nowrap"
+                data-index="{{ loop.index0 }}">
+          下載 (CSV)
+        </button>
+        {% endif %}
+      </div>
+
+      {% if r.passed %}
+      <div class="bg-green-100 text-green-800 rounded-md p-4 mb-4 font-medium">
+        ✅ 已符合畢業資格（總學分 {{ r.total_credit }} / {{ required_total }}，應修必修科目皆已通過）
+      </div>
+      {% else %}
+      <div class="bg-red-100 text-red-800 rounded-md p-4 mb-4 font-medium">
+        ❌ 尚未符合畢業資格（總學分 {{ r.total_credit }} / {{ required_total }}
+        {%- if not r.credit_ok %}，學分不足{% endif -%}
+        {%- if r.missing_required %}，仍有必修科目未通過{% endif -%}
+        ）
+      </div>
+      {% endif %}
+
+      {% if r.missing_required %}
+      <div class="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+        <p class="text-sm font-medium text-red-800 mb-2">📚 對照 {{ year }} 學年度應修科目表，還沒通過的科目：</p>
+        <ul class="text-sm text-red-700 space-y-1">
+          {% for m in r.missing_required %}
+          <li>
+            {{ m.name }}（{{ m.missing_codes | join('、') }}）
+            {% if m.codes | length > 1 and m.missing_codes | length < m.codes | length %}
+            — 已修 {{ (m.codes | reject('in', m.missing_codes) | list) | join('、') }}，尚缺 {{ m.missing_codes | join('、') }}
+            {% endif %}
+            {% if m.note %}<span class="text-red-500">（{{ m.note }}）</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if r.unmet_categories %}
+      <div class="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
+        <p class="text-sm font-medium text-orange-800 mb-2">📋 教務處判定尚未完成的項目（來自 PDF 本身的畢業審核紀錄）：</p>
+        <ul class="text-sm text-orange-700 space-y-1">
+          {% for u in r.unmet_categories %}
+          <li>
+            {{ u.name }}（{{ u.code }}）：應修 {{ u.required_credit }} 學分 / {{ u.required_count }} 科目，
+            實修 {{ u.actual_credit }} 學分 / {{ u.actual_count }} 科目
+            {% if u.required_credit > u.actual_credit %}
+            — 還差 {{ u.required_credit - u.actual_credit }} 學分
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if r.courses %}
+      <div class="max-h-80 overflow-y-auto border rounded-md">
+        <table class="w-full text-sm border-collapse">
+          <thead class="sticky top-0 bg-white">
+            <tr class="border-b text-left">
+              <th class="py-1 px-2">課號</th>
+              <th class="py-1 px-2">課程名稱</th>
+              <th class="py-1 px-2">學分</th>
+              <th class="py-1 px-2">成績</th>
+              <th class="py-1 px-2">判定</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in r.courses %}
+            <tr class="border-b {{ '' if c.passed else 'text-red-500' }}">
+              <td class="py-1 px-2">{{ c.code }}</td>
+              <td class="py-1 px-2">{{ c.name }}</td>
+              <td class="py-1 px-2">{{ c.credit }}</td>
+              <td class="py-1 px-2">{{ c.grade }}</td>
+              <td class="py-1 px-2">{{ '通過' if c.passed else '不通過' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-gray-500 text-sm">
+        沒有解析到任何課程資料，可能是這份 PDF 是掃描版（圖片型），或表格格式與預期不同。
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <a href="/" class="inline-block text-blue-600 hover:underline">← 重新上傳</a>
   </div>
+
+  <script>
+    const results = {{ results | tojson }};
+    const requiredTotal = {{ required_total | tojson }};
+    const year = {{ year | tojson }};
+
+    // 跟畫面上綠色/紅色那個判定框一模一樣的文字，讓沒開網頁的人看CSV也看得懂結論
+    function statusText(r) {
+      if (r.passed) {
+        return `✅ 已符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}，應修必修科目皆已通過）`;
+      }
+      const reasons = [];
+      if (!r.credit_ok) reasons.push('學分不足');
+      if (r.missing_required.length) reasons.push('仍有必修科目未通過');
+      return `❌ 尚未符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}${reasons.length ? '，' + reasons.join('、') : ''}）`;
+    }
+
+    // 把一批結果（可能是全部、也可能只有一份）整理成 CSV 的資料列，
+    // 目標是把畫面上每一區塊（判定結果／還沒通過的科目／教務處未完成項目／課程明細）都對應成一列，
+    // 這樣不用打開網頁，光看CSV也能還原畫面上顯示的完整內容。
+    function buildCsvRows(resultList) {
+      const rows = [['檔案名稱', '學年度', '區塊', '課號/代碼', '項目名稱', '學分', '成績/備註', '狀態']];
+      for (const r of resultList) {
+        rows.push([r.filename, year, '判定結果', '', statusText(r), r.total_credit, `畢業門檻 ${requiredTotal} 學分`, r.passed ? '通過' : '未通過']);
+
+        for (const m of r.missing_required) {
+          rows.push([r.filename, year, '還沒通過的科目', m.missing_codes.join('、'), m.name, '', m.note || '', '未修']);
+        }
+
+        for (const u of r.unmet_categories) {
+          rows.push([
+            r.filename, year, '教務處未完成項目', u.code, u.name,
+            `實修${u.actual_credit}/應修${u.required_credit}學分`, `實修${u.actual_count}/應修${u.required_count}科目`, '未完成',
+          ]);
+        }
+
+        if (!r.courses.length) {
+          rows.push([r.filename, year, '課程明細', '', '（沒有解析到任何課程資料）', '', '', '']);
+        }
+        for (const c of r.courses) {
+          rows.push([r.filename, year, '課程明細', c.code, c.name, c.credit, c.grade, c.passed ? '通過' : '不通過']);
+        }
+      }
+      return rows;
+    }
+
+    function downloadCsv(rows, filename) {
+      const escapeCell = (v) => `"${String(v).replace(/"/g, '""')}"`;
+      const csv = '﻿' + rows.map(row => row.map(escapeCell).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // 頂部「下載全部結果」：把這次上傳的所有份成績單合併成一個CSV
+    document.getElementById('download-all-csv')?.addEventListener('click', () => {
+      downloadCsv(buildCsvRows(results), '畢業學分檢核結果_全部.csv');
+    });
+
+    // 每張結果卡片右上角的「下載」：只匯出那一份自己的結果
+    document.querySelectorAll('.download-one-csv').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const r = results[Number(btn.dataset.index)];
+        const safeName = r.filename.replace(/[\\/:*?"<>|]/g, '_');
+        downloadCsv(buildCsvRows([r]), `畢業學分檢核結果_${safeName}.csv`);
+      });
+    });
+  </script>
 </body>
 </html>
