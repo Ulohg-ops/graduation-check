@@ -1,5 +1,5 @@
 '114':
-  total_credits: 128
+  total_credits: 128.0
   required_courses:
   - name: 國文
     code: ''

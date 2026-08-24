@@ -14,6 +14,9 @@ from fastapi.templating import Jinja2Templates
 BASE_DIR = Path(__file__).resolve().parent
 RULES_FILE = BASE_DIR / "rules.yaml"
 
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB，一般文字型成績單PDF遠小於這個數字，超過大概是傳錯檔案
+MAX_FILES = 30  # 一次最多同時處理幾份，避免有人整個資料夾誤傳上來拖垮伺服器
+
 app = FastAPI(title="化材系畢業學分檢核系統")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -135,13 +138,20 @@ def _extract_unmet_categories(pdf: pdfplumber.PDF) -> list:
 
 
 def parse_transcript(pdf_bytes: bytes) -> dict:
-    """從成績單／畢業審核紀錄表 PDF 擷取課程明細，並加總「已通過」課程的學分數。"""
+    """從成績單／畢業審核紀錄表 PDF 擷取課程明細，並加總「已通過」課程的學分數。
+
+    呼叫端要用 try/except 包住：pdfplumber 打開損毀檔案或非PDF檔案時會丟例外，
+    這裡不吞掉，讓呼叫端決定怎麼呈現錯誤（通常是顯示「這份檔案無法解析」而不是整個request壞掉）。
+    """
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         courses = _extract_course_rows(pdf)
         unmet_categories = _extract_unmet_categories(pdf)
+        # 用來分辨「掃描版、根本沒有文字」跟「有文字但抓不到課程表格」這兩種不同的失敗原因，
+        # 結果頁可以給更精確的提示，不要籠統地都說「可能是掃描版」
+        has_text = any((page.extract_text() or "").strip() for page in pdf.pages)
 
     # 同一課號重補修會出現多筆（例如二一二不及格、二二二補修通過），
-    # 只要有一次通過就採計一次學分，避免加總時重複計入。
+    # 只要有一次通過就算一次學分，避免加總時重複計入。
     deduped = {}
     for c in courses:
         key = c["code"] or c["name"]
@@ -156,6 +166,7 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         "total_credit": total_credit,
         "unmet_categories": unmet_categories,
         "passed_codes": passed_codes,
+        "has_text": has_text,
     }
 
 
@@ -252,7 +263,13 @@ def mock_transcript(year_data: dict) -> dict:
     ]
     total_credit = sum(c["credit"] for c in courses)
     passed_codes = {c["code"] for c in courses if c["code"]}
-    return {"courses": courses, "total_credit": total_credit, "unmet_categories": [], "passed_codes": passed_codes}
+    return {
+        "courses": courses,
+        "total_credit": total_credit,
+        "unmet_categories": [],
+        "passed_codes": passed_codes,
+        "has_text": True,
+    }
 
 
 # 12xxx（一般系訂必修12100/12101、核心必選修/專題必選修分組12200~12203）算出來的內容，
@@ -277,12 +294,30 @@ def _build_result_entry(
     ]
     return {
         "filename": filename,
+        "error": None,
         "total_credit": result["total_credit"],
         "credit_ok": credit_ok,
         "passed": credit_ok and not missing_required,
         "courses": result["courses"],
+        "has_text": result["has_text"],
         "unmet_categories": unmet_categories,
         "missing_required": missing_required,
+    }
+
+
+def _build_error_entry(filename: str, error: str) -> dict:
+    """檔案太大、不是有效PDF、或解析途中出例外時用這個，讓結果頁能顯示明確的錯誤原因，
+    而不是讓整個request壞掉、變成使用者看不懂的500錯誤頁。"""
+    return {
+        "filename": filename,
+        "error": error,
+        "total_credit": 0,
+        "credit_ok": False,
+        "passed": False,
+        "courses": [],
+        "has_text": False,
+        "unmet_categories": [],
+        "missing_required": [],
     }
 
 
@@ -311,7 +346,7 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
             },
         )
 
-    uploaded = [f for f in files if f.filename]
+    uploaded = [f for f in files if f.filename][:MAX_FILES]
 
     results = []
     is_mock = not uploaded
@@ -325,7 +360,20 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
     else:
         for f in uploaded:
             pdf_bytes = await f.read()
-            result = parse_transcript(pdf_bytes)
+            if len(pdf_bytes) > MAX_FILE_SIZE:
+                results.append(
+                    _build_error_entry(f.filename, f"檔案大小超過{MAX_FILE_SIZE // (1024 * 1024)}MB，請確認是不是正確的成績單PDF")
+                )
+                continue
+            try:
+                result = parse_transcript(pdf_bytes)
+            except Exception:
+                # pdfplumber 打不開非PDF檔案、損毀檔案時會丟例外，這裡接住讓單一檔案錯誤
+                # 只影響那一份的顯示結果，不要讓整個request壞掉、其他份檔案也一起看不到結果
+                results.append(
+                    _build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀")
+                )
+                continue
             results.append(_build_result_entry(f.filename, result, required_total, required_courses, group_requirements))
 
     return templates.TemplateResponse(

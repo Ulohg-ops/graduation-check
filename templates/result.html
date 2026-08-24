@@ -60,6 +60,11 @@
         {% endif %}
       </div>
 
+      {% if r.error %}
+      <div class="bg-red-100 text-red-800 rounded-md p-4 font-medium">
+        ⚠️ 無法檢核這份檔案：{{ r.error }}
+      </div>
+      {% else %}
       {% if r.passed %}
       <div class="bg-green-100 text-green-800 rounded-md p-4 mb-4 font-medium">
         ✅ 已符合畢業資格（總學分 {{ r.total_credit }} / {{ required_total }}，應修必修科目皆已通過）
@@ -132,10 +137,16 @@
           </tbody>
         </table>
       </div>
+      {% elif r.has_text %}
+      <p class="text-gray-500 text-sm">
+        這份PDF有文字內容，但沒有解析到任何課程資料——可能是表格格式跟系統預期的不一樣，
+        建議人工核對這份成績單，或聯絡系統管理員確認解析規則是否需要調整。
+      </p>
       {% else %}
       <p class="text-gray-500 text-sm">
-        沒有解析到任何課程資料，可能是這份 PDF 是掃描版（圖片型），或表格格式與預期不同。
+        沒有解析到任何課程資料，也沒有偵測到文字內容，這份PDF可能是掃描版（圖片型），系統目前不支援解析這種格式。
       </p>
+      {% endif %}
       {% endif %}
     </div>
     {% endfor %}
