@@ -1,3 +1,4 @@
+import copy
 import io
 import re
 from itertools import groupby
@@ -293,6 +294,23 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
     required_courses = year_data.get("required_courses", [])
     group_requirements = year_data.get("group_requirements", {})
 
+    # 這個學年度還沒有在 /admin 建過畢業門檻規則（找不到、或必修清單是空的、或總學分是0）：
+    # 沒有規則可以比對，不能假裝檢核過然後判定通過——空規則不是「沒有門檻」，是「還沒設定」，
+    # 直接擋下來、明確告訴使用者，不要讓 credit_ok（0學分門檻永遠True）跟空的必修清單
+    # （永遠沒有缺項）湊出一個看起來正常、其實完全沒檢查過的「✅ 已符合畢業資格」。
+    if not required_courses or required_total <= 0:
+        return templates.TemplateResponse(
+            request,
+            "result.html",
+            {
+                "year": year,
+                "required_total": required_total,
+                "results": [],
+                "is_mock": False,
+                "rules_not_configured": True,
+            },
+        )
+
     uploaded = [f for f in files if f.filename]
 
     results = []
@@ -352,13 +370,8 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
     required_courses = [_normalize_course(i, c) for i, c in enumerate(year_data.get("required_courses", []))]
     required_courses.sort(key=lambda c: c["category"] != "必修")
 
-    # 類別不是寫死的「必修/選修」兩選項，是自由輸入、給表單自動完成選項用；「必修」是預設值，
-    # 空白會視為必修（_normalize_course 已經處理），所以這裡固定加進選項，即使目前沒有任何科目用到
-    category_options = sorted({"必修"} | {c["category"] for c in required_courses if c["category"]})
-    # 科目列表裡的「類別」欄位只在真的有一種以上類別時才顯示，全部都是必修的話這欄只是重複噪音；
-    # 一旦哪天真的加了選修科目，這欄會自動出現，不用手動改
-    show_category = len({c["category"] for c in required_courses}) > 1
-    table_colspan = 6 if show_category else 5
+    # 表格欄位數固定是5（課程名稱/課號/學分/備註/操作），分組跟區塊標題列用這個算colspan
+    table_colspan = 5
 
     # 分組名稱來自兩個地方：課程已經在用的分組、還有已經設定過「選幾門」但還沒有任何科目掛上去的分組
     # （例如剛用「新增分組」建立、還沒開始加科目的新分組），兩邊聯集才不會漏掉還沒綁課的空分組
@@ -397,8 +410,6 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
             "total_credits": year_data.get("total_credits", 0),
             "required_courses": required_courses,
             "course_sections": course_sections,
-            "category_options": category_options,
-            "show_category": show_category,
             "table_colspan": table_colspan,
             "group_options": group_options,
             "group_requirements": group_requirements,
@@ -409,12 +420,45 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
 
 
 @app.post("/admin/year/add")
-async def admin_year_add(year: str = Form(...)):
+async def admin_year_add(year: str = Form(...), copy_from: str = Form("")):
     year = year.strip()
+    copy_from = copy_from.strip()
     rules = load_rules()
-    rules.setdefault(year, {"total_credits": 0, "required_courses": [], "group_requirements": {}})
-    save_rules(rules)
+
+    # 不能覆蓋已經存在的學年度規則（不管是空白建立還是從別的學年度複製），避免手滑蓋掉既有資料
+    if year not in rules:
+        if copy_from and copy_from in rules:
+            # 深拷貝來源學年度的完整規則（總學分、必修科目、分組設定），新學年度要能獨立編輯、
+            # 改動不能互相影響到來源學年度，所以不能直接共用同一份 list/dict 物件
+            rules[year] = copy.deepcopy(rules[copy_from])
+        else:
+            rules[year] = {"total_credits": 0, "required_courses": [], "group_requirements": {}}
+        save_rules(rules)
+
     return RedirectResponse(f"/admin?year={year}", status_code=303)
+
+
+@app.post("/admin/year/rename")
+async def admin_year_rename(old_year: str = Form(...), new_year: str = Form(...)):
+    old_year = old_year.strip()
+    new_year = new_year.strip()
+    rules = load_rules()
+
+    # 新名稱不能是空的、不能跟舊的一樣、也不能撞到已經存在的另一個學年度（避免資料被覆蓋掉）
+    if new_year and new_year != old_year and new_year not in rules and old_year in rules:
+        rules[new_year] = rules.pop(old_year)
+        save_rules(rules)
+        return RedirectResponse(f"/admin?year={new_year}", status_code=303)
+
+    return RedirectResponse(f"/admin?year={old_year}", status_code=303)
+
+
+@app.post("/admin/year/delete")
+async def admin_year_delete(year: str = Form(...)):
+    rules = load_rules()
+    rules.pop(year, None)
+    save_rules(rules)
+    return RedirectResponse("/admin", status_code=303)
 
 
 @app.post("/admin/group/set_requirement")
@@ -463,19 +507,33 @@ async def admin_group_delete(year: str = Form(...), group: str = Form(...)):
     return RedirectResponse(f"/admin?year={year}", status_code=303)
 
 
-@app.post("/admin/category/rename")
-async def admin_category_rename(year: str = Form(...), old_category: str = Form(...), new_category: str = Form("")):
-    old_category = old_category.strip()
-    new_category = new_category.strip()
+@app.post("/admin/tier/rename")
+async def admin_tier_rename(year: str = Form(...), old_tier: str = Form(...), new_tier: str = Form("")):
+    old_tier = old_tier.strip()
+    new_tier = new_tier.strip()
     rules = load_rules()
     year_data = rules.get(year, {})
 
-    if new_category and new_category != old_category:
-        # 類別沒有像分組那樣另外存「選幾門」的設定，單純把用到舊類別名稱的科目全部改成新名稱
+    if new_tier and new_tier != old_tier:
+        # 層級沒有像分組那樣另外存設定，單純把用到舊層級名稱的科目全部改成新名稱
         for c in year_data.get("required_courses", []):
-            if (c.get("category") or "必修") == old_category:
-                c["category"] = new_category
+            if c.get("tier") == old_tier:
+                c["tier"] = new_tier
         save_rules(rules)
+
+    return RedirectResponse(f"/admin?year={year}", status_code=303)
+
+
+@app.post("/admin/tier/delete")
+async def admin_tier_delete(year: str = Form(...), tier: str = Form(...)):
+    rules = load_rules()
+    year_data = rules.get(year, {})
+
+    # 刪除層級不會連科目一起刪掉，科目會變回沒有層級標記的一般必修/選修科目，只是不再分區顯示
+    for c in year_data.get("required_courses", []):
+        if c.get("tier") == tier:
+            c["tier"] = ""
+    save_rules(rules)
 
     return RedirectResponse(f"/admin?year={year}", status_code=303)
 

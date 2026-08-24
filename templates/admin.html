@@ -30,10 +30,29 @@
           </select>
         </form>
         {% endif %}
-        <form method="post" action="/admin/year/add" class="mt-2 flex items-center gap-2">
+        {% if year %}
+        <form method="post" action="/admin/year/rename" class="mt-2 flex items-center gap-2">
+          <label class="text-sm text-gray-600">改學年度名稱</label>
+          <input type="hidden" name="old_year" value="{{ year }}" />
+          <input type="text" name="new_year" value="{{ year }}" class="border rounded-md p-1 text-sm w-20" />
+          <button type="submit" class="text-sm text-blue-600 hover:underline">改名</button>
+        </form>
+        <form method="post" action="/admin/year/delete" class="mt-2"
+              onsubmit="return confirm('刪除 {{ year }} 學年度？這個學年度所有的必修科目、分組設定都會一起刪掉，無法復原。')">
+          <input type="hidden" name="year" value="{{ year }}" />
+          <button type="submit" class="text-sm text-red-600 hover:underline">刪除這個學年度</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/admin/year/add" class="mt-2 flex items-center gap-2 flex-wrap">
           <label class="text-sm text-gray-600">新增學年度</label>
           <input type="text" name="year" required placeholder="例如 115"
                  class="border rounded-md p-1 text-sm w-20" />
+          <select name="copy_from" class="border rounded-md p-1 text-sm">
+            <option value="">（空白開始）</option>
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>複製自 {{ y }} 學年度</option>
+            {% endfor %}
+          </select>
           <button type="submit" class="text-sm text-blue-600 hover:underline">建立</button>
         </form>
       </div>
@@ -55,11 +74,6 @@
           <input type="number" step="0.5" name="credits" required class="border rounded-md p-1 text-sm w-16" />
         </div>
         <div>
-          <label class="block text-xs text-gray-500">類別</label>
-          <input type="text" name="category" list="category-options" value="必修"
-                 class="border rounded-md p-1 text-sm w-20" />
-        </div>
-        <div>
           <label class="block text-xs text-gray-500">分組（選填，N選1時用）</label>
           <input type="text" name="group" list="group-options" placeholder="例如：核心必選修A組"
                  class="border rounded-md p-1 text-sm w-36" />
@@ -79,11 +93,6 @@
           + 新增科目
         </button>
       </form>
-      <datalist id="category-options">
-        {% for cat in category_options %}
-        <option value="{{ cat }}"></option>
-        {% endfor %}
-      </datalist>
       <datalist id="group-options">
         {% for g in group_options %}
         <option value="{{ g }}"></option>
@@ -114,9 +123,6 @@
     <table class="w-full text-sm border-collapse table-fixed">
       <thead>
         <tr class="border-b text-left">
-          {% if show_category %}
-          <th class="py-1 pr-2 w-16">類別</th>
-          {% endif %}
           <th class="py-1 pr-2">課程名稱</th>
           <th class="py-1 pr-2 w-32">課號</th>
           <th class="py-1 pr-2 w-16">學分</th>
@@ -148,8 +154,6 @@
             <form method="post" action="/admin/course/update" class="flex items-center gap-2 flex-wrap">
               <input type="hidden" name="year" value="{{ year }}" />
               <input type="hidden" name="index" value="{{ c.index }}" />
-              <input type="text" name="category" value="{{ c.category }}" list="category-options"
-                     class="border rounded-md p-1 text-sm w-20" />
               <input type="text" name="name" value="{{ c.name }}" required
                      class="border rounded-md p-1 text-sm flex-1 min-w-[8rem]" />
               <input type="text" name="code" value="{{ c.code }}" placeholder="課號"
@@ -167,14 +171,6 @@
             </form>
           </td>
           {% else %}
-          {% if show_category %}
-          <td class="py-1 pr-2">
-            <span class="px-2 py-0.5 rounded text-xs whitespace-nowrap
-                         {{ 'bg-blue-100 text-blue-700' if c.category == '必修' else 'bg-gray-100 text-gray-600' }}">
-              {{ c.category }}
-            </span>
-          </td>
-          {% endif %}
           <td class="py-1 pr-2">{{ c.name }}</td>
           <td class="py-1 pr-2 text-gray-500 break-all">{{ c.code }}</td>
           <td class="py-1 pr-2">{{ c.credits }}</td>
@@ -197,25 +193,6 @@
         {% endfor %}
       </tbody>
     </table>
-
-    <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mt-6">
-      <p class="text-xs text-gray-600 mb-3">
-        💡「類別」不是鎖死只能選必修/選修，可以自由輸入任何名稱（打字時會有自動完成建議可選）。
-        要重新命名某個類別，直接改下面對應的名稱存檔即可，該類別底下所有科目會一起更新：
-      </p>
-      <div class="flex flex-wrap gap-3">
-        {% for cat in category_options %}
-        <form method="post" action="/admin/category/rename"
-              class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1">
-          <input type="hidden" name="year" value="{{ year }}" />
-          <input type="hidden" name="old_category" value="{{ cat }}" />
-          <input type="text" name="new_category" value="{{ cat }}"
-                 class="border rounded-md p-1 text-xs w-20" />
-          <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">儲存</button>
-        </form>
-        {% endfor %}
-      </div>
-    </div>
 
     <div class="bg-purple-50 border border-purple-200 rounded-md p-3 mt-6">
       <p class="text-xs text-gray-600 mb-3">
@@ -275,6 +252,32 @@
         </button>
       </form>
     </div>
+
+    {% if tier_options %}
+    <div class="bg-gray-100 border border-gray-300 rounded-md p-3 mt-6">
+      <p class="text-xs text-gray-600 mb-3">
+        💡「層級」純粹是畫面分類用（例如共同必修/院訂必修/系訂必修），不影響判定邏輯。
+        要重新命名或刪除某個層級，直接在下面操作，底下所有科目會一起更新：
+      </p>
+      <div class="flex flex-wrap gap-3">
+        {% for t in tier_options %}
+        <form method="post" action="/admin/tier/rename"
+              class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1"
+              onsubmit="return !event.submitter || event.submitter.name !== 'delete' || confirm('刪除層級「{{ t }}」？底下的科目不會被刪除，只會變回沒有層級標記的一般科目。')">
+          <input type="hidden" name="year" value="{{ year }}" />
+          <input type="hidden" name="old_tier" value="{{ t }}" />
+          <input type="hidden" name="tier" value="{{ t }}" />
+          <input type="text" name="new_tier" value="{{ t }}" list="tier-options"
+                 class="border rounded-md p-1 text-xs w-28" />
+          <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">重新命名</button>
+          <span class="text-xs text-gray-300">|</span>
+          <button type="submit" name="delete" formaction="/admin/tier/delete"
+                  class="text-xs text-red-600 hover:underline whitespace-nowrap">刪除</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
     {% endif %}
   </div>
 </body>
