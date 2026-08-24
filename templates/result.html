@@ -16,6 +16,15 @@
   </header>
 
   <div class="max-w-3xl mx-auto my-8 space-y-6">
+    {% if rules_not_configured %}
+    <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則）</h1>
+    <div class="bg-red-100 text-red-800 rounded-md p-4 font-medium">
+      ⚠️ {{ year }} 學年度目前還沒有設定畢業門檻規則（沒有必修科目清單，或畢業總學分是0），
+      沒有規則可以比對，無法檢核。請先到「調整應修科目表」為這個學年度建立規則後再試一次。
+    </div>
+    <a href="/admin?year={{ year }}" class="inline-block text-blue-600 hover:underline">前往設定 {{ year }} 學年度規則 →</a>
+    <a href="/" class="inline-block text-blue-600 hover:underline">← 回首頁</a>
+    {% else %}
     <div class="flex justify-between items-center flex-wrap gap-3">
       <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）</h1>
       {% if not is_mock and results|length > 1 %}
@@ -132,6 +141,7 @@
     {% endfor %}
 
     <a href="/" class="inline-block text-blue-600 hover:underline">← 重新上傳</a>
+    {% endif %}
   </div>
 
   <script>
