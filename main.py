@@ -78,6 +78,7 @@ def _extract_course_rows(pdf: pdfplumber.PDF) -> list:
                         "code": next((i for i, c in enumerate(cells) if c == "課號"), None),
                         "grade": next((i for i, c in enumerate(cells) if c == "成績"), None),
                         "verdict": next((i for i, c in enumerate(cells) if c == "判定"), None),
+                        "term": next((i for i, c in enumerate(cells) if c == "學年學期"), None),
                     }
                     continue
 
@@ -101,9 +102,22 @@ def _extract_course_rows(pdf: pdfplumber.PDF) -> list:
                         "grade": cells[col["grade"]] if col["grade"] is not None else "",
                         # 畢業審核紀錄表才有「判定」欄；沒有這欄的成績單就先當作都已通過
                         "passed": verdict != "不通過" if col["verdict"] is not None else True,
+                        # 學年學期（例如「1131」＝113學年第1學期），先修/順序修習規定要比對
+                        # 兩門課的修課先後順序時會用到；沒有這欄的成績單（例如舊格式）就是 None，
+                        # 對應規則會自動退回「只看有沒有通過、不看順序」的舊邏輯。
+                        "term": cells[col["term"]] if col["term"] is not None else "",
                     }
                 )
     return courses
+
+
+def _parse_term(term: str) -> Optional[int]:
+    """把「學年學期」字串（例如「1131」＝113學年第1學期）轉成可以比大小的整數，
+    數字越大代表學期越晚。格式不是純數字（缺欄、掃描辨識錯誤...）就回傳 None，
+    呼叫端要能容忍 None、退回不比較順序的舊邏輯，不能讓解析失敗變成整個檢核壞掉。
+    """
+    term = (term or "").strip()
+    return int(term) if term.isdigit() else None
 
 
 _UNMET_CATEGORY_RE = re.compile(
@@ -167,7 +181,7 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
     total_credit = sum(c["credit"] for c in deduped.values() if c["passed"])
     passed_codes = {c["code"] for c in deduped.values() if c["passed"] and c["code"]}
     passed_courses = [
-        {"code": c["code"], "name": c["name"], "credit": c["credit"]}
+        {"code": c["code"], "name": c["name"], "credit": c["credit"], "term": _parse_term(c.get("term"))}
         for c in deduped.values()
         if c["passed"]
     ]
@@ -354,7 +368,13 @@ def _credit_breakdown(
     }
 
 
-def _check_prerequisite(passed_codes: set, trigger_codes: list, require_codes: list, require_count: int) -> tuple:
+def _check_prerequisite(
+    passed_codes: set,
+    trigger_codes: list,
+    require_codes: list,
+    require_count: int,
+    term_by_code: dict = None,
+) -> tuple:
     """先修規定的核心判斷：`trigger_codes` 有任一門通過，才要求 `require_codes` 裡至少通過
     `require_count` 門。回傳 (status, detail)，status 是 "na"（trigger都沒通過，規則不適用）/
     "ok"/"fail"。
@@ -362,17 +382,38 @@ def _check_prerequisite(passed_codes: set, trigger_codes: list, require_codes: l
     這也是「順序修習規定」(sequence) 的底層邏輯——A→B→C依序修習，拆開來看就是「B通過了就要求A
     也通過（1取1）」「C通過了就要求B也通過（1取1）」兩條先修規定接在一起，兩種 kind 共用同一個
     判斷函式，不用各自重複寫一次「trigger通過了才檢查require門數夠不夠」這段邏輯。
+
+    `term_by_code`（課號→學年學期整數，數字越大代表學期越晚，來自成績單「學年學期」欄位）是選填的：
+    沒帶的話只看「有沒有通過」，跟以前行為一樣。有帶的話，門數夠了之後還會多檢查一次「真的是先修完
+    才修trigger」——比對通過的require_codes是不是真的在trigger最早通過的那個學期「之前」完成，
+    抓出「順序真的顛倒過，只是後來兩門都補到及格」這種只看有沒有通過會漏掉的違規。某門課的學期
+    資料缺失（None，例如舊格式PDF沒有這欄）時當作「無法反證」，不算違規，避免因為資料不全就誤判。
     """
+    term_by_code = term_by_code or {}
     if not any(t in passed_codes for t in trigger_codes):
         return "na", ""
     # 算「通過幾門」一定要用不重複的課號集合去算：require_codes 萬一不小心重複打了同一個課號
     # 兩次（例如手動輸入、或直接改 rules.yaml），不能讓同一門通過的課被算兩次、虛報通過門數。
     distinct_required = set(require_codes)
-    passed_count = len(distinct_required & passed_codes)
-    if passed_count >= require_count:
+    passed_required = distinct_required & passed_codes
+    if len(passed_required) < require_count:
+        missing = dict.fromkeys(r for r in require_codes if r not in passed_codes)  # 去重但保留原本順序
+        return "fail", f"已通過{len(passed_required)}/{require_count}門，尚缺：{'、'.join(missing)}"
+
+    trigger_terms = [
+        term_by_code[t] for t in trigger_codes if t in passed_codes and term_by_code.get(t) is not None
+    ]
+    if not trigger_terms:
         return "ok", ""
-    missing = dict.fromkeys(r for r in require_codes if r not in passed_codes)  # 去重但保留原本順序
-    return "fail", f"已通過{passed_count}/{require_count}門，尚缺：{'、'.join(missing)}"
+    earliest_trigger_term = min(trigger_terms)
+
+    on_time = {
+        r for r in passed_required if term_by_code.get(r) is None or term_by_code[r] < earliest_trigger_term
+    }
+    if len(on_time) >= require_count:
+        return "ok", ""
+    too_late = sorted(passed_required - on_time)
+    return "fail", f"已通過「{'、'.join(too_late)}」，但是跟先修課程同一學期或之後才通過，不符合先修順序"
 
 
 def evaluate_note_rules(
@@ -391,8 +432,9 @@ def evaluate_note_rules(
       trigger_codes 一門都沒通過就代表這條規則根本沒被觸發（例如沒修工程數學），status 給 "na"
       （不適用），不算沒過，也不列入及格判定，避免跟學生根本沒選的課無關的規則害他被判不及格。
     - sequence（順序修習規定）：例如「理論與實務整合專題實作需依照EG3001、EG3002、EG3003順序修習」，
-      一串課號規定修習順序；成績單沒有學期資料沒辦法確認「先後順序」，但至少能抓出「後面的通過了、
-      前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）一樣給 "na"。
+      一串課號規定修習順序；成績單有學年學期欄位的話會比對真正的修課順序，沒有的話至少能抓出
+      「後面的通過了、前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）
+      一樣給 "na"。
     - elective_source（選修學分來源）：例如「選修16學分中至少6學分要CH課號或特定課群」——必修/選修
       學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），這條
       規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。
@@ -403,6 +445,7 @@ def evaluate_note_rules(
     elective_courses = _credit_breakdown(required_courses, group_requirements, passed_codes, passed_courses)[
         "elective_courses"
     ]
+    term_by_code = {c["code"]: c.get("term") for c in passed_courses if c["code"]}
 
     results = []
     for rule in note_rules:
@@ -414,7 +457,9 @@ def evaluate_note_rules(
             trigger_codes = rule.get("trigger_codes") or []
             require_codes = rule.get("require_codes") or []
             require_count = rule.get("require_count") or len(require_codes) or 1
-            status, detail = _check_prerequisite(passed_codes, trigger_codes, require_codes, require_count)
+            status, detail = _check_prerequisite(
+                passed_codes, trigger_codes, require_codes, require_count, term_by_code
+            )
             results.append({"text": text, "kind": kind, "category": category, "status": status, "detail": detail})
 
         elif kind == "sequence":
@@ -422,16 +467,16 @@ def evaluate_note_rules(
             if not any(c in passed_codes for c in codes):
                 results.append({"text": text, "kind": kind, "category": category, "status": "na", "detail": ""})
                 continue
-            # 每相鄰兩門課都是一條「後面通過了就要求前面也通過」的先修規定（1取1），
+            # 每相鄰兩門課都是一條「後面通過了就要求前面也通過（而且要先通過）」的先修規定（1取1），
             # 抓到第一個違反順序的地方就回報，不用再往後檢查。
-            violation_detail = next(
-                (
-                    f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
-                    for i in range(1, len(codes))
-                    if _check_prerequisite(passed_codes, [codes[i]], [codes[i - 1]], 1)[0] == "fail"
-                ),
-                None,
-            )
+            violation_detail = None
+            for i in range(1, len(codes)):
+                pair_status, pair_detail = _check_prerequisite(
+                    passed_codes, [codes[i]], [codes[i - 1]], 1, term_by_code
+                )
+                if pair_status == "fail":
+                    violation_detail = pair_detail or f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
+                    break
             status = "fail" if violation_detail else "ok"
             results.append(
                 {"text": text, "kind": kind, "category": category, "status": status, "detail": violation_detail or ""}
@@ -512,7 +557,7 @@ def mock_transcript(year_data: dict) -> dict:
     ]
     total_credit = sum(c["credit"] for c in courses)
     passed_codes = {c["code"] for c in courses if c["code"]}
-    passed_courses = [{"code": c["code"], "name": c["name"], "credit": c["credit"]} for c in courses]
+    passed_courses = [{"code": c["code"], "name": c["name"], "credit": c["credit"], "term": None} for c in courses]
     return {
         "courses": courses,
         "total_credit": total_credit,
