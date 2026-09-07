@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* Tailwind v4 把 Preflight 預設的 border-color 從 v3 的淺灰色改成 currentColor，
+   這個專案很多地方（表格、輸入框、卡片）都只用 border/border-b 沒指定顏色，
+   照v4新預設會整個變成粗黑邊框、版面看起來跑掉，這裡改回v3的淺灰色預設保持視覺一致。 */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, #e5e7eb);
+  }
+}
