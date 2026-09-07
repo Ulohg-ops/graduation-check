@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>化材系畢業學分檢核系統 - 檢核結果</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/tailwind.css" />
 </head>
 <body class="bg-gray-50 min-h-screen">
   <header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm">
@@ -73,9 +73,33 @@
       <div class="bg-red-100 text-red-800 rounded-md p-4 mb-4 font-medium">
         ❌ 尚未符合畢業資格（總學分 {{ r.total_credit }} / {{ required_total }}
         {%- if not r.credit_ok %}，學分不足{% endif -%}
+        {%- if r.required_credits and not r.required_credit_ok %}，必修學分不足{% endif -%}
+        {%- if r.elective_credits and not r.elective_credit_ok %}，選修學分不足{% endif -%}
         {%- if r.missing_required %}，仍有必修科目未通過{% endif -%}
+        {%- if r.note_results | selectattr('status', 'equalto', 'fail') | list %}，備註規則未符合{% endif -%}
         ）
       </div>
+      {% endif %}
+
+      {% if r.required_credits or r.elective_credits %}
+      <p class="text-xs text-gray-500 mb-1">
+        {% if r.required_credits %}<span class="{{ '' if r.required_credit_ok else 'text-red-600 font-medium' }}">必修學分 {{ r.required_credit_total }} / {{ r.required_credits }}</span>{% endif %}
+        {% if r.required_credits and r.elective_credits %}｜{% endif %}
+        {% if r.elective_credits %}<span class="{{ '' if r.elective_credit_ok else 'text-red-600 font-medium' }}">選修學分 {{ r.elective_credit_total }} / {{ r.elective_credits }}</span>{% endif %}
+      </p>
+      {% endif %}
+
+      {% if r.elective_courses %}
+      <details class="mb-4">
+        <summary class="text-xs text-gray-500 cursor-pointer hover:underline">
+          📄 被判定為選修學分的課程（{{ r.elective_courses | length }} 科目，共 {{ r.elective_credit_total }} 學分）
+        </summary>
+        <ul class="text-sm text-gray-700 mt-2 space-y-0.5 pl-4 list-disc list-inside">
+          {% for c in r.elective_courses %}
+          <li>{{ c.code }}　{{ c.name }}（{{ c.credit }} 學分）</li>
+          {% endfor %}
+        </ul>
+      </details>
       {% endif %}
 
       {% if r.missing_required %}
@@ -109,6 +133,28 @@
           </li>
           {% endfor %}
         </ul>
+      </div>
+      {% endif %}
+
+      {% if r.note_sections %}
+      <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+        <p class="text-sm font-medium text-blue-800 mb-2">📌 應修科目表備註規則：</p>
+        {% for section in r.note_sections %}
+        <div class="mb-2 last:mb-0">
+          {% if section.category %}
+          <p class="text-xs font-semibold text-blue-700 mb-1">{{ section.category }}</p>
+          {% endif %}
+          <ul class="text-sm space-y-1">
+            {% for n in section.entries %}
+            <li class="{{ 'text-red-700' if n.status == 'fail' else ('text-green-700' if n.status == 'ok' else 'text-gray-500') }}">
+              {%- if n.status == 'ok' -%}✅{%- elif n.status == 'fail' -%}❌{%- elif n.status == 'na' -%}➖{%- else -%}ℹ️{%- endif -%}
+              {{ n.text }}
+              {% if n.detail %}<span class="text-xs">（{{ n.detail }}）</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
 
@@ -167,7 +213,10 @@
       }
       const reasons = [];
       if (!r.credit_ok) reasons.push('學分不足');
+      if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
+      if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
       if (r.missing_required.length) reasons.push('仍有必修科目未通過');
+      if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
       return `❌ 尚未符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}${reasons.length ? '，' + reasons.join('、') : ''}）`;
     }
 
@@ -188,6 +237,15 @@
             r.filename, year, '教務處未完成項目', u.code, u.name,
             `實修${u.actual_credit}/應修${u.required_credit}學分`, `實修${u.actual_count}/應修${u.required_count}科目`, '未完成',
           ]);
+        }
+
+        const noteStatusLabel = { ok: '已完成', fail: '未完成', na: '不適用', info: '提醒' };
+        for (const n of r.note_results) {
+          rows.push([r.filename, year, '備註規則', '', n.text, '', n.detail || '', noteStatusLabel[n.status] || n.status]);
+        }
+
+        for (const c of r.elective_courses) {
+          rows.push([r.filename, year, '選修學分課程', c.code, c.name, c.credit, '', '選修']);
         }
 
         if (!r.courses.length) {

@@ -9,6 +9,7 @@ import pdfplumber
 import yaml
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -19,6 +20,10 @@ MAX_FILES = 30  # 一次最多同時處理幾份，避免有人整個資料夾�
 
 app = FastAPI(title="化材系畢業學分檢核系統")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+# 樣式改用本機打包好的 static/tailwind.css（不再用 CDN 版），同仁電腦沒有網路也能正常顯示畫面；
+# 樣板裡新增的 Tailwind class 沒被這份編譯好的CSS涵蓋到的話，要重新用 tailwindcss CLI 打包一次
+# （指令見 static/tailwind_input.css 旁邊，掃描 templates/ 底下用到的 class 重新編譯 tailwind.css）。
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 def load_rules() -> dict:
@@ -161,13 +166,48 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
 
     total_credit = sum(c["credit"] for c in deduped.values() if c["passed"])
     passed_codes = {c["code"] for c in deduped.values() if c["passed"] and c["code"]}
+    passed_courses = [
+        {"code": c["code"], "name": c["name"], "credit": c["credit"]}
+        for c in deduped.values()
+        if c["passed"]
+    ]
     return {
         "courses": courses,
         "total_credit": total_credit,
         "unmet_categories": unmet_categories,
         "passed_codes": passed_codes,
+        "passed_courses": passed_courses,
         "has_text": has_text,
     }
+
+
+def _split_codes(code_field: str) -> list:
+    """把應修科目表課號欄位（多門課用「/」合併記錄，例如「CH1023/CH1024」）拆成單一課號的list。"""
+    return [c.strip() for c in (code_field or "").split("/") if c.strip()]
+
+
+def _bucket_required_courses(required_courses: list) -> tuple:
+    """把應修科目表依 `group` 欄位分堆成「一般必修」跟「M選N群組必修」兩種，兩種都要用到的地方
+    （missing_required_courses、_consumed_required_codes）共用同一份分堆結果，不用各自重新掃一次。
+
+    回傳 (plain, groups)：
+    - plain：沒有分組的科目，每筆多帶一個 `codes`（課號用「/」拆開後的list）。
+    - groups：{分組名稱: [科目, ...]}，同一組的科目按 required_courses 原本的順序排列，
+      每筆一樣多帶 `codes`。
+    """
+    plain = []
+    groups: dict = {}
+    for course in required_courses:
+        codes = _split_codes(course.get("code"))
+        if not codes:
+            continue
+        group = (course.get("group") or "").strip()
+        entry = {**course, "codes": codes}
+        if group:
+            groups.setdefault(group, []).append(entry)
+        else:
+            plain.append(entry)
+    return plain, groups
 
 
 def missing_required_courses(required_courses: list, passed_codes: set, group_requirements: dict = None) -> list:
@@ -186,17 +226,7 @@ def missing_required_courses(required_courses: list, passed_codes: set, group_re
        分組名稱、要選幾門都是 /admin 頁面上可以調整的資料，不是寫死的固定清單。
     """
     group_requirements = group_requirements or {}
-    groups: dict = {}
-    plain = []
-    for course in required_courses:
-        codes = [c.strip() for c in (course.get("code") or "").split("/") if c.strip()]
-        if not codes:
-            continue
-        group = (course.get("group") or "").strip()
-        if group:
-            groups.setdefault(group, []).append({**course, "codes": codes})
-        else:
-            plain.append({**course, "codes": codes})
+    plain, groups = _bucket_required_courses(required_courses)
 
     missing = []
     for course in plain:
@@ -235,6 +265,225 @@ def missing_required_courses(required_courses: list, passed_codes: set, group_re
     return missing
 
 
+def _consumed_required_codes(
+    required_courses: list, group_requirements: dict, passed_codes: set, passed_courses: list = None
+) -> tuple:
+    """算出「被拿去滿足必修/必選修門檻」的課號集合，選修學分來源規則要拿這個集合去排除必修課。
+
+    一般必修（沒有 group 的科目）沒有「多修」的概念，攤平後全部算必修消耗掉。核心必選修/專題
+    必選修這種M選N分組就不一樣：分組底下的選項全部列在應修科目表裡，但學生真的通過門檻只需要
+    N門，超過N門的部分依應修科目表備註「核心必選修與專題必選修超修所得之學分，得計入本系之
+    畢業學分總數」，應該要能算進選修學分，不能整組通通當必修排除掉，不然超修的學分會憑空消失、
+    永遠沒辦法被任何門檻採計到。跟 missing_required_courses() 一樣用「攤平後的課號數」而不是
+    「完整選項數」去算門檻（這裡用同一個順序取前N個已通過的課號當作「消耗掉」的），跟官方畢業
+    審核系統的認定方式一致。
+
+    另外「國文」「外文」「通識課程」「體育課程」「服務學習課程」這種必修項目，選課方式多元、
+    沒有登記固定課號（`code` 是空字串），但有登記 `code_prefixes`（例如外文都是LN開頭）的話，
+    成績單裡課號符合前綴的課，也要算必修消耗掉，不然學生實際選的那門課（例如大一英文LN1001）
+    課號沒登記在應修科目表裡，會被誤判成選修，選修學分因此虛胖。
+
+    這種課號前綴比對也要有「只消耗到門檻為止」的上限：這幾項都各自有自己的學分門檻（該筆
+    required_courses 項目的 `credits`，例如外文6學分、通識14學分），真實成績單裡符合前綴的課
+    學分加總常常超過這個數字（例如外文修了大一英文6學分又修了日文3學分，通識超修2學分）。但跟
+    M選N分組不一樣的是，這種超修「不能」流向選修學分——選修學分只能是本系專業課程或應修科目表
+    列出的必修/必選修課程超修的部分，通識/外文/國文這種共同必修categories多修的課不算數（既不是
+    必修、也不是選修，單純不列入這兩個子門檻，但還是算在總學分裡）。所以超過門檻的部分只從
+    consumed排除、另外歸進 excluded 集合，_credit_breakdown 要把這個集合也從選修學分池扣掉。
+    門檻是0（例如體育、服務學習課程本身沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有
+    「多少算超修」的基準可以拿來切。
+
+    回傳 (consumed, excluded)：consumed 是必修學分池的課號，excluded 是「不算必修、但也不能算
+    選修」的超修課號（目前只有課號前綴超修這一種情況）。
+    """
+    group_requirements = group_requirements or {}
+    plain, groups = _bucket_required_courses(required_courses)
+    consumed = {c for course in plain for c in course["codes"]}
+
+    for group, group_courses in groups.items():
+        required_count = group_requirements.get(group, 1)
+        all_codes = [c for gc in group_courses for c in gc["codes"]]
+        passed_in_group = [c for c in all_codes if c in passed_codes]
+        consumed.update(passed_in_group[:required_count])
+
+    excluded = set()
+    if passed_courses:
+        for course in required_courses:
+            prefixes = course.get("code_prefixes") or []
+            if not prefixes:
+                continue
+            threshold = course.get("credits") or 0
+            matched = [
+                c for c in passed_courses
+                if c["code"] and c["code"] not in consumed and any(c["code"].startswith(p) for p in prefixes)
+            ]
+            if threshold <= 0:
+                consumed.update(c["code"] for c in matched)
+                continue
+            accumulated = 0.0
+            for c in matched:
+                if accumulated < threshold:
+                    consumed.add(c["code"])
+                    accumulated += c["credit"]
+                else:
+                    excluded.add(c["code"])
+
+    return consumed, excluded
+
+
+def _credit_breakdown(
+    required_courses: list, group_requirements: dict, passed_codes: set, passed_courses: list
+) -> dict:
+    """把成績單切成「必修學分」跟「選修學分」兩塊：必修學分＝被拿去滿足必修/必選修門檻的課學分
+    加總（含用課號前綴比對到的國文/外文/通識這種沒登記固定課號的必修項目）；選修學分則是其餘
+    已通過課程扣掉「共同必修超修」（excluded，見_consumed_required_codes說明）後的學分加總——
+    這種超修只能算在總學分裡，不能算選修，選修必須是本系專業課程或必修/必選修超修的部分。
+    `/check` 的必修/選修學分門檻，跟 elective_source 備註規則要算的「選修來源」，都是同一份
+    切分結果，這裡算一次共用，不用兩邊各自重算。
+    """
+    consumed, excluded = _consumed_required_codes(required_courses, group_requirements, passed_codes, passed_courses)
+    elective_courses = [
+        c for c in passed_courses if c["code"] and c["code"] not in consumed and c["code"] not in excluded
+    ]
+    required_credit_total = sum(c["credit"] for c in passed_courses if c["code"] and c["code"] in consumed)
+    elective_credit_total = sum(c["credit"] for c in elective_courses)
+    return {
+        "elective_courses": elective_courses,
+        "required_credit_total": required_credit_total,
+        "elective_credit_total": elective_credit_total,
+    }
+
+
+def _check_prerequisite(passed_codes: set, trigger_codes: list, require_codes: list, require_count: int) -> tuple:
+    """先修規定的核心判斷：`trigger_codes` 有任一門通過，才要求 `require_codes` 裡至少通過
+    `require_count` 門。回傳 (status, detail)，status 是 "na"（trigger都沒通過，規則不適用）/
+    "ok"/"fail"。
+
+    這也是「順序修習規定」(sequence) 的底層邏輯——A→B→C依序修習，拆開來看就是「B通過了就要求A
+    也通過（1取1）」「C通過了就要求B也通過（1取1）」兩條先修規定接在一起，兩種 kind 共用同一個
+    判斷函式，不用各自重複寫一次「trigger通過了才檢查require門數夠不夠」這段邏輯。
+    """
+    if not any(t in passed_codes for t in trigger_codes):
+        return "na", ""
+    # 算「通過幾門」一定要用不重複的課號集合去算：require_codes 萬一不小心重複打了同一個課號
+    # 兩次（例如手動輸入、或直接改 rules.yaml），不能讓同一門通過的課被算兩次、虛報通過門數。
+    distinct_required = set(require_codes)
+    passed_count = len(distinct_required & passed_codes)
+    if passed_count >= require_count:
+        return "ok", ""
+    missing = dict.fromkeys(r for r in require_codes if r not in passed_codes)  # 去重但保留原本順序
+    return "fail", f"已通過{passed_count}/{require_count}門，尚缺：{'、'.join(missing)}"
+
+
+def evaluate_note_rules(
+    note_rules: list,
+    passed_codes: set,
+    passed_courses: list,
+    required_courses: list,
+    group_requirements: dict = None,
+) -> list:
+    """把應修科目表下方的「備註」規則（rules.yaml 的 note_rules）拿去對照成績單，算出每條的完成狀態。
+
+    四種 kind 對應畢業門檻PDF備註裡實際會出現的規則形狀，設計成可重複套用的通用類型，
+    之後系上備註調整時大多只要用既有 kind 開新規則，不用改程式碼：
+    - prerequisite（先修規定）：例如「微積分任一門通過才能修工程數學」「四門課任兩門以上才能修程序設計」
+      「學士論文Ⅰ通過才能修學士論文Ⅱ」，都是「觸發課號通過了 → 要求課號要通過夠多門」的形狀。
+      trigger_codes 一門都沒通過就代表這條規則根本沒被觸發（例如沒修工程數學），status 給 "na"
+      （不適用），不算沒過，也不列入及格判定，避免跟學生根本沒選的課無關的規則害他被判不及格。
+    - sequence（順序修習規定）：例如「理論與實務整合專題實作需依照EG3001、EG3002、EG3003順序修習」，
+      一串課號規定修習順序；成績單沒有學期資料沒辦法確認「先後順序」，但至少能抓出「後面的通過了、
+      前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）一樣給 "na"。
+    - elective_source（選修學分來源）：例如「選修16學分中至少6學分要CH課號或特定課群」——必修/選修
+      學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），這條
+      規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。
+      不是對照固定課號清單，而是要從成績單裡挑出「已通過但不在必修清單裡」的課當選修學分來源。
+    - info：像「同一學期不可同時修讀X和Y」「依本校雙主修辦法」這種沒有學期資料/純政策引用、
+      根本沒辦法從成績單自動判斷的備註，就只顯示文字提醒，不判斷完成與否。
+    """
+    elective_courses = _credit_breakdown(required_courses, group_requirements, passed_codes, passed_courses)[
+        "elective_courses"
+    ]
+
+    results = []
+    for rule in note_rules:
+        kind = rule.get("kind", "info")
+        text = rule.get("text", "")
+        category = rule.get("category", "")
+
+        if kind == "prerequisite":
+            trigger_codes = rule.get("trigger_codes") or []
+            require_codes = rule.get("require_codes") or []
+            require_count = rule.get("require_count") or len(require_codes) or 1
+            status, detail = _check_prerequisite(passed_codes, trigger_codes, require_codes, require_count)
+            results.append({"text": text, "kind": kind, "category": category, "status": status, "detail": detail})
+
+        elif kind == "sequence":
+            codes = rule.get("codes") or []
+            if not any(c in passed_codes for c in codes):
+                results.append({"text": text, "kind": kind, "category": category, "status": "na", "detail": ""})
+                continue
+            # 每相鄰兩門課都是一條「後面通過了就要求前面也通過」的先修規定（1取1），
+            # 抓到第一個違反順序的地方就回報，不用再往後檢查。
+            violation_detail = next(
+                (
+                    f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
+                    for i in range(1, len(codes))
+                    if _check_prerequisite(passed_codes, [codes[i]], [codes[i - 1]], 1)[0] == "fail"
+                ),
+                None,
+            )
+            status = "fail" if violation_detail else "ok"
+            results.append(
+                {"text": text, "kind": kind, "category": category, "status": status, "detail": violation_detail or ""}
+            )
+
+        elif kind == "elective_source":
+            min_source = rule.get("min_source_credits") or 0
+            prefixes = rule.get("source_code_prefixes") or []
+            # 額外名單同時比對課號跟課名：學院公告的課群名單有時只給課名、沒有課號（例如還沒實際開課
+            # 排課號），兩種都收才不會因為拿到的名單格式不一樣就沒辦法用。
+            extra_matches = set(rule.get("source_extra_codes") or [])
+            source_total = sum(
+                c["credit"]
+                for c in elective_courses
+                if c["code"] in extra_matches
+                or c["name"] in extra_matches
+                or any(c["code"].startswith(p) for p in prefixes)
+            )
+            ok = source_total >= min_source
+            results.append(
+                {
+                    "text": text,
+                    "kind": kind,
+                    "category": category,
+                    "status": "ok" if ok else "fail",
+                    "detail": f"符合來源條件 {source_total}/{min_source}",
+                }
+            )
+
+        else:
+            results.append({"text": text, "kind": "info", "category": category, "status": "info", "detail": ""})
+
+    return results
+
+
+def _group_note_results_by_category(note_results: list) -> list:
+    """把備註規則的判斷結果依 category（分類，例如「二、院、系訂必修」）分組，維持第一次出現的分類順序，
+    好讓結果頁能照著應修科目表原本的「一/二/三」段落分開顯示，而不是全部備註擠成一長串列表。
+    """
+    sections: list = []
+    index_by_category: dict = {}
+    for n in note_results:
+        cat = n.get("category") or "其他備註"
+        if cat not in index_by_category:
+            index_by_category[cat] = len(sections)
+            # 這裡故意不叫 "items"：dict 內建就有 .items() 方法，Jinja 樣板裡用 section.items
+            # 這種點記法時會先撞到內建方法（拿到 bound method）而不是這個 key，要避開命名衝突。
+            sections.append({"category": cat, "entries": []})
+        sections[index_by_category[cat]]["entries"].append(n)
+    return sections
+
+
 @app.get("/help", response_class=HTMLResponse)
 async def help_page(request: Request):
     return templates.TemplateResponse(request, "help.html", {})
@@ -263,11 +512,13 @@ def mock_transcript(year_data: dict) -> dict:
     ]
     total_credit = sum(c["credit"] for c in courses)
     passed_codes = {c["code"] for c in courses if c["code"]}
+    passed_courses = [{"code": c["code"], "name": c["name"], "credit": c["credit"]} for c in courses]
     return {
         "courses": courses,
         "total_credit": total_credit,
         "unmet_categories": [],
         "passed_codes": passed_codes,
+        "passed_courses": passed_courses,
         "has_text": True,
     }
 
@@ -280,28 +531,65 @@ _DUPLICATED_CATEGORY_PREFIX = "12"
 
 
 def _build_result_entry(
-    filename: str, result: dict, required_total: float, required_courses: list, group_requirements: dict
+    filename: str,
+    result: dict,
+    required_total: float,
+    required_credits: float,
+    elective_credits: float,
+    required_courses: list,
+    group_requirements: dict,
+    note_rules: list,
 ) -> dict:
     """把單一份成績單的解析結果，組成結果頁要顯示的一筆資料。
 
-    是否「通過」不是只看總學分數字，還要求應修科目表裡的必修科目（含核心必選修/專題必選修
-    這種M選N分組）全部滿足，兩個條件都成立才算真的達到畢業資格，避免學生隨便湊學分就被判定通過。
+    是否「通過」不是只看總學分數字，還要求：應修科目表裡的必修科目（含核心必選修/專題必選修
+    這種M選N分組）全部滿足、必修/選修學分子項門檻（required_credits/elective_credits，選填，
+    對應PDF「必修112學分、選修16學分」這種寫法）達標、應修科目表備註規則（note_rules，例如
+    選修學分來源限制）也沒有不合格的項目，四個條件都成立才算真的達到畢業資格。
     """
     missing_required = missing_required_courses(required_courses, result["passed_codes"], group_requirements)
     credit_ok = result["total_credit"] >= required_total
+    breakdown = _credit_breakdown(
+        required_courses, group_requirements, result["passed_codes"], result["passed_courses"]
+    )
+    required_credit_ok = breakdown["required_credit_total"] >= required_credits if required_credits else True
+    elective_credit_ok = breakdown["elective_credit_total"] >= elective_credits if elective_credits else True
     unmet_categories = [
         u for u in result["unmet_categories"] if not u["code"].startswith(_DUPLICATED_CATEGORY_PREFIX)
     ]
+    note_results = evaluate_note_rules(
+        note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
+    )
+    note_rules_failed = any(n["status"] == "fail" for n in note_results)
     return {
         "filename": filename,
         "error": None,
         "total_credit": result["total_credit"],
         "credit_ok": credit_ok,
-        "passed": credit_ok and not missing_required,
+        "required_credits": required_credits,
+        "required_credit_total": breakdown["required_credit_total"],
+        "required_credit_ok": required_credit_ok,
+        "elective_credits": elective_credits,
+        "elective_credit_total": breakdown["elective_credit_total"],
+        "elective_credit_ok": elective_credit_ok,
+        # 學分為0的列（例如「操行」CR0001這種評量/行政紀錄，不是真的選修課）不列進顯示清單，
+        # 反正對選修學分加總本來就貢獻0學分，列出來只會讓人誤以為那是一門「被算進選修」的課
+        "elective_courses": sorted(
+            (c for c in breakdown["elective_courses"] if c["credit"] > 0), key=lambda c: c["code"]
+        ),
+        "passed": (
+            credit_ok
+            and required_credit_ok
+            and elective_credit_ok
+            and not missing_required
+            and not note_rules_failed
+        ),
         "courses": result["courses"],
         "has_text": result["has_text"],
         "unmet_categories": unmet_categories,
         "missing_required": missing_required,
+        "note_results": note_results,
+        "note_sections": _group_note_results_by_category(note_results),
     }
 
 
@@ -313,11 +601,20 @@ def _build_error_entry(filename: str, error: str) -> dict:
         "error": error,
         "total_credit": 0,
         "credit_ok": False,
+        "required_credits": 0,
+        "required_credit_total": 0,
+        "required_credit_ok": False,
+        "elective_credits": 0,
+        "elective_credit_total": 0,
+        "elective_credit_ok": False,
+        "elective_courses": [],
         "passed": False,
         "courses": [],
         "has_text": False,
         "unmet_categories": [],
         "missing_required": [],
+        "note_results": [],
+        "note_sections": [],
     }
 
 
@@ -326,8 +623,11 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
     rules = load_rules()
     year_data = rules.get(year, {})
     required_total = year_data.get("total_credits", 0)
+    required_credits = year_data.get("required_credits", 0)
+    elective_credits = year_data.get("elective_credits", 0)
     required_courses = year_data.get("required_courses", [])
     group_requirements = year_data.get("group_requirements", {})
+    note_rules = year_data.get("note_rules", [])
 
     # 這個學年度還沒有在 /admin 建過畢業門檻規則（找不到、或必修清單是空的、或總學分是0）：
     # 沒有規則可以比對，不能假裝檢核過然後判定通過——空規則不是「沒有門檻」，是「還沒設定」，
@@ -354,7 +654,14 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
         result = mock_transcript(year_data)
         results.append(
             _build_result_entry(
-                "（預覽假資料，尚未上傳成績單）", result, required_total, required_courses, group_requirements
+                "（預覽假資料，尚未上傳成績單）",
+                result,
+                required_total,
+                required_credits,
+                elective_credits,
+                required_courses,
+                group_requirements,
+                note_rules,
             )
         )
     else:
@@ -374,7 +681,18 @@ async def check(request: Request, year: str = Form(...), files: List[UploadFile]
                     _build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀")
                 )
                 continue
-            results.append(_build_result_entry(f.filename, result, required_total, required_courses, group_requirements))
+            results.append(
+                _build_result_entry(
+                    f.filename,
+                    result,
+                    required_total,
+                    required_credits,
+                    elective_credits,
+                    required_courses,
+                    group_requirements,
+                    note_rules,
+                )
+            )
 
     return templates.TemplateResponse(
         request,
@@ -401,15 +719,141 @@ def _normalize_course(index: int, c: dict) -> dict:
         # 結構分區顯示，方便對照。
         "tier": c.get("tier", ""),
         "note": c.get("note", ""),
+        # 課號前綴：給「國文/外文/通識/體育/服務學習」這種沒有登記固定課號（因為選課方式多元）
+        # 的必修項目用，只用來判斷選修學分池要排除哪些課，不影響必修有沒有通過的判定。
+        "code_prefixes": ", ".join(c.get("code_prefixes") or []),
     }
 
 
-@app.get("/admin", response_class=HTMLResponse)
-async def admin(request: Request, year: Optional[str] = None, edit: Optional[int] = None):
-    rules = load_rules()
+_NOTE_RULE_KIND_LABELS = {
+    "info": "純提醒",
+    "prerequisite": "先修規定",
+    "sequence": "順序修習規定",
+    "elective_source": "選修學分來源",
+}
+
+# 應修科目表原始PDF的備註段落順序，給「類別」欄位自動完成建議用，管理者也可以自己輸入別的分類
+_NOTE_RULE_CATEGORY_SUGGESTIONS = ["一、共同必修", "二、院、系訂必修", "三、雙主修規定"]
+
+
+def _parse_code_list(s: str) -> list:
+    """把表單裡逗號分隔的課號/課名字串拆成list，順便去重（保留第一次出現的順序）。
+    去重是必要的：像 require_codes 這種欄位如果不小心重複打了同一個課號兩次，
+    _check_prerequisite() 算「通過幾門」時會把同一門通過的課算兩次，可能讓明明沒達到
+    門檻的情況被誤判成已達標。
+    """
+    seen = set()
+    result = []
+    for c in (s or "").split(","):
+        c = c.strip()
+        if c and c not in seen:
+            seen.add(c)
+            result.append(c)
+    return result
+
+
+def _normalize_note_rule(index: int, r: dict) -> dict:
+    """把 rules.yaml 存的 note_rule（list欄位是真的list）轉成表單好用的格式（list join成逗號字串）。"""
+    kind = r.get("kind") or "info"
+    return {
+        "index": index,
+        "kind": kind,
+        "kind_label": _NOTE_RULE_KIND_LABELS.get(kind, kind),
+        "category": r.get("category", ""),
+        "text": r.get("text", ""),
+        "trigger_codes": ", ".join(r.get("trigger_codes") or []),
+        "require_codes": ", ".join(r.get("require_codes") or []),
+        "require_count": r.get("require_count", 1),
+        "codes": ", ".join(r.get("codes") or []),
+        "min_source_credits": r.get("min_source_credits", 0),
+        "source_code_prefixes": ", ".join(r.get("source_code_prefixes") or []),
+        "source_extra_codes": ", ".join(r.get("source_extra_codes") or []),
+    }
+
+
+def _course_catalog(required_courses: list) -> list:
+    """把應修科目表課號（含「/」合併的）攤平成 {code, name} 清單，去重、依課號排序。
+
+    這是系統目前唯一有的課程資料來源，給備註規則表單「搜尋課號/課名加入」那個輔助輸入用，
+    不是真的去查什麼外部課程資料庫。
+    """
+    seen = set()
+    catalog = []
+    for course in required_courses:
+        name = course.get("name", "")
+        for code in _split_codes(course.get("code")):
+            if code not in seen:
+                seen.add(code)
+                catalog.append({"code": code, "name": name})
+    catalog.sort(key=lambda c: c["code"])
+    return catalog
+
+
+def _build_note_rule(
+    kind: str,
+    category: str,
+    text: str,
+    trigger_codes: str,
+    require_codes: str,
+    require_count: int,
+    codes: str,
+    min_source_credits: float,
+    source_code_prefixes: str,
+    source_extra_codes: str,
+) -> dict:
+    rule = {"kind": kind, "category": category.strip(), "text": text}
+    if kind == "prerequisite":
+        rule["trigger_codes"] = _parse_code_list(trigger_codes)
+        rule["require_codes"] = _parse_code_list(require_codes)
+        rule["require_count"] = require_count or len(rule["require_codes"]) or 1
+    elif kind == "sequence":
+        rule["codes"] = _parse_code_list(codes)
+    elif kind == "elective_source":
+        rule["min_source_credits"] = min_source_credits or 0
+        rule["source_code_prefixes"] = _parse_code_list(source_code_prefixes)
+        rule["source_extra_codes"] = _parse_code_list(source_extra_codes)
+    return rule
+
+
+def _resolve_year(rules: dict, year: Optional[str]) -> tuple:
+    """三個 /admin 分頁（科目管理/分組與學年度設定/備註規則設定）共用的「目前選的是哪個學年度」邏輯：
+    網址帶的 year 存在就用它，不然預設選最新的學年度（沒有任何學年度就是 None）。
+    """
     years = sorted(rules.keys(), reverse=True)
     selected_year = year if year in rules else (years[0] if years else None)
     year_data = rules.get(selected_year, {}) if selected_year else {}
+    return years, selected_year, year_data
+
+
+def _group_options_and_requirements(required_courses: list, year_data: dict) -> tuple:
+    """分組設定（分組管理頁）跟課程表單的分組自動完成建議（科目管理頁）都要用到同一份分組清單，
+    抽出來共用，不用兩個路由各自重算一次。
+    """
+    # 分組名稱來自兩個地方：課程已經在用的分組、還有已經設定過「選幾門」但還沒有任何科目掛上去的分組
+    # （例如剛用「新增分組」建立、還沒開始加科目的新分組），兩邊聯集才不會漏掉還沒綁課的空分組
+    stored_group_requirements = year_data.get("group_requirements", {})
+    group_options = sorted({c["group"] for c in required_courses if c["group"]} | set(stored_group_requirements))
+    # 每個分組要選幾門：rules.yaml 裡沒特別設定的分組，預設是選1門
+    group_requirements = [
+        {"group": g, "required_count": stored_group_requirements.get(g, 1)} for g in group_options
+    ]
+    return group_options, group_requirements
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin(
+    request: Request,
+    year: Optional[str] = None,
+    tab: str = "courses",
+    edit: Optional[int] = None,
+    edit_note: Optional[int] = None,
+):
+    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定」三個分頁籤，
+    用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」（例如表單送出
+    後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    """
+    rules = load_rules()
+    years, selected_year, year_data = _resolve_year(rules, year)
 
     # 必修排在選修前面；同一類別內維持 rules.yaml 原本的順序（stable sort不會打亂同類別內的相對順序）。
     # 這樣同一層級/分組的科目只要在資料裡本來就排在一起，畫面就會照著文件原本的順序（共同必修→院訂
@@ -421,16 +865,8 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
     # 表格欄位數固定是5（課程名稱/課號/學分/備註/操作），分組跟區塊標題列用這個算colspan
     table_colspan = 5
 
-    # 分組名稱來自兩個地方：課程已經在用的分組、還有已經設定過「選幾門」但還沒有任何科目掛上去的分組
-    # （例如剛用「新增分組」建立、還沒開始加科目的新分組），兩邊聯集才不會漏掉還沒綁課的空分組
+    group_options, group_requirements = _group_options_and_requirements(required_courses, year_data)
     stored_group_requirements = year_data.get("group_requirements", {})
-    group_options = sorted({c["group"] for c in required_courses if c["group"]} | set(stored_group_requirements))
-
-    # 每個分組要選幾門：rules.yaml 裡沒特別設定的分組，預設是選1門
-    group_requirements = [
-        {"group": g, "required_count": stored_group_requirements.get(g, 1)} for g in group_options
-    ]
-
     # 層級純粹是顯示分類用（共同必修/院訂必修/系訂必修...），不影響判定邏輯，給表單自動完成選項用
     tier_options = sorted({c["tier"] for c in required_courses if c["tier"]})
 
@@ -449,13 +885,27 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
             }
         )
 
+    note_rules = [_normalize_note_rule(i, r) for i, r in enumerate(year_data.get("note_rules", []))]
+    # 分類自動完成建議：PDF原本的一/二/三段落，加上這個學年度已經用過的分類（可能是自訂的）
+    note_category_options = sorted(
+        set(_NOTE_RULE_CATEGORY_SUGGESTIONS) | {r["category"] for r in note_rules if r["category"]},
+        key=lambda c: (
+            _NOTE_RULE_CATEGORY_SUGGESTIONS.index(c) if c in _NOTE_RULE_CATEGORY_SUGGESTIONS else 99,
+            c,
+        ),
+    )
+    course_catalog = _course_catalog(year_data.get("required_courses", []))
+
     return templates.TemplateResponse(
         request,
         "admin.html",
         {
+            "active_tab": tab,
             "years": years,
             "year": selected_year,
             "total_credits": year_data.get("total_credits", 0),
+            "required_credits": year_data.get("required_credits", 0),
+            "elective_credits": year_data.get("elective_credits", 0),
             "required_courses": required_courses,
             "course_sections": course_sections,
             "table_colspan": table_colspan,
@@ -463,6 +913,11 @@ async def admin(request: Request, year: Optional[str] = None, edit: Optional[int
             "group_requirements": group_requirements,
             "tier_options": tier_options,
             "edit_index": edit,
+            "note_rules": note_rules,
+            "note_rule_kinds": _NOTE_RULE_KIND_LABELS,
+            "course_catalog": course_catalog,
+            "note_category_options": note_category_options,
+            "edit_note_index": edit_note,
         },
     )
 
@@ -480,7 +935,12 @@ async def admin_year_add(year: str = Form(...), copy_from: str = Form("")):
             # 改動不能互相影響到來源學年度，所以不能直接共用同一份 list/dict 物件
             rules[year] = copy.deepcopy(rules[copy_from])
         else:
-            rules[year] = {"total_credits": 0, "required_courses": [], "group_requirements": {}}
+            rules[year] = {
+                "total_credits": 0,
+                "required_courses": [],
+                "group_requirements": {},
+                "note_rules": [],
+            }
         save_rules(rules)
 
     return RedirectResponse(f"/admin?year={year}", status_code=303)
@@ -496,9 +956,9 @@ async def admin_year_rename(old_year: str = Form(...), new_year: str = Form(...)
     if new_year and new_year != old_year and new_year not in rules and old_year in rules:
         rules[new_year] = rules.pop(old_year)
         save_rules(rules)
-        return RedirectResponse(f"/admin?year={new_year}", status_code=303)
+        return RedirectResponse(f"/admin?year={new_year}&tab=settings", status_code=303)
 
-    return RedirectResponse(f"/admin?year={old_year}", status_code=303)
+    return RedirectResponse(f"/admin?year={old_year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/year/delete")
@@ -515,7 +975,7 @@ async def admin_group_set_requirement(year: str = Form(...), group: str = Form(.
     year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": [], "group_requirements": {}})
     year_data.setdefault("group_requirements", {})[group] = required_count
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/group/rename")
@@ -537,7 +997,7 @@ async def admin_group_rename(year: str = Form(...), old_group: str = Form(...), 
             group_requirements.setdefault(new_group, old_count)
         save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/group/delete")
@@ -552,7 +1012,7 @@ async def admin_group_delete(year: str = Form(...), group: str = Form(...)):
     year_data.get("group_requirements", {}).pop(group, None)
     save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/tier/rename")
@@ -569,7 +1029,7 @@ async def admin_tier_rename(year: str = Form(...), old_tier: str = Form(...), ne
                 c["tier"] = new_tier
         save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/tier/delete")
@@ -583,7 +1043,7 @@ async def admin_tier_delete(year: str = Form(...), tier: str = Form(...)):
             c["tier"] = ""
     save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
 
 
 @app.post("/admin/course/add")
@@ -596,13 +1056,14 @@ async def admin_course_add(
     group: str = Form(""),
     tier: str = Form(""),
     note: str = Form(""),
+    code_prefixes: str = Form(""),
 ):
     rules = load_rules()
     year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
     year_data.setdefault("required_courses", []).append(
         {
             "name": name, "code": code, "credits": credits, "category": category,
-            "group": group, "tier": tier, "note": note,
+            "group": group, "tier": tier, "note": note, "code_prefixes": _parse_code_list(code_prefixes),
         }
     )
     save_rules(rules)
@@ -620,13 +1081,14 @@ async def admin_course_update(
     group: str = Form(""),
     tier: str = Form(""),
     note: str = Form(""),
+    code_prefixes: str = Form(""),
 ):
     rules = load_rules()
     courses = rules.get(year, {}).get("required_courses", [])
     if 0 <= index < len(courses):
         courses[index] = {
             "name": name, "code": code, "credits": credits, "category": category,
-            "group": group, "tier": tier, "note": note,
+            "group": group, "tier": tier, "note": note, "code_prefixes": _parse_code_list(code_prefixes),
         }
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}#row-{index}", status_code=303)
@@ -649,3 +1111,83 @@ async def admin_total_credits(year: str = Form(...), total_credits: float = Form
     year_data["total_credits"] = total_credits
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}", status_code=303)
+
+
+@app.post("/admin/required_credits")
+async def admin_required_credits(year: str = Form(...), required_credits: float = Form(0)):
+    rules = load_rules()
+    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
+    year_data["required_credits"] = required_credits
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}", status_code=303)
+
+
+@app.post("/admin/elective_credits")
+async def admin_elective_credits(year: str = Form(...), elective_credits: float = Form(0)):
+    rules = load_rules()
+    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
+    year_data["elective_credits"] = elective_credits
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}", status_code=303)
+
+
+@app.post("/admin/note_rule/add")
+async def admin_note_rule_add(
+    year: str = Form(...),
+    kind: str = Form("info"),
+    category: str = Form(""),
+    text: str = Form(...),
+    trigger_codes: str = Form(""),
+    require_codes: str = Form(""),
+    require_count: int = Form(0),
+    codes: str = Form(""),
+    min_source_credits: float = Form(0),
+    source_code_prefixes: str = Form(""),
+    source_extra_codes: str = Form(""),
+):
+    rules = load_rules()
+    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
+    year_data.setdefault("note_rules", []).append(
+        _build_note_rule(
+            kind, category, text, trigger_codes, require_codes, require_count, codes,
+            min_source_credits, source_code_prefixes, source_extra_codes,
+        )
+    )
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
+
+
+@app.post("/admin/note_rule/update")
+async def admin_note_rule_update(
+    year: str = Form(...),
+    index: int = Form(...),
+    kind: str = Form("info"),
+    category: str = Form(""),
+    text: str = Form(...),
+    trigger_codes: str = Form(""),
+    require_codes: str = Form(""),
+    require_count: int = Form(0),
+    codes: str = Form(""),
+    min_source_credits: float = Form(0),
+    source_code_prefixes: str = Form(""),
+    source_extra_codes: str = Form(""),
+):
+    rules = load_rules()
+    note_rules = rules.get(year, {}).get("note_rules", [])
+    if 0 <= index < len(note_rules):
+        note_rules[index] = _build_note_rule(
+            kind, category, text, trigger_codes, require_codes, require_count, codes,
+            min_source_credits, source_code_prefixes, source_extra_codes,
+        )
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}&tab=notes#note-row-{index}", status_code=303)
+
+
+@app.post("/admin/note_rule/delete")
+async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...)):
+    rules = load_rules()
+    note_rules = rules.get(year, {}).get("note_rules", [])
+    if 0 <= index < len(note_rules):
+        note_rules.pop(index)
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
