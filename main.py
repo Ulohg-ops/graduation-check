@@ -428,16 +428,20 @@ def evaluate_note_rules(
 ) -> list:
     """把應修科目表下方的「備註」規則（rules.yaml 的 note_rules）拿去對照成績單，算出每條的完成狀態。
 
-    四種 kind 對應畢業門檻PDF備註裡實際會出現的規則形狀，設計成可重複套用的通用類型，
+    三種 kind 對應畢業門檻PDF備註裡實際會出現的規則形狀，設計成可重複套用的通用類型，
     之後系上備註調整時大多只要用既有 kind 開新規則，不用改程式碼：
-    - prerequisite（先修規定）：例如「微積分任一門通過才能修工程數學」「四門課任兩門以上才能修程序設計」
-      「學士論文Ⅰ通過才能修學士論文Ⅱ」，都是「觸發課號通過了 → 要求課號要通過夠多門」的形狀。
-      trigger_codes 一門都沒通過就代表這條規則根本沒被觸發（例如沒修工程數學），status 給 "na"
-      （不適用），不算沒過，也不列入及格判定，避免跟學生根本沒選的課無關的規則害他被判不及格。
-    - sequence（順序修習規定）：例如「理論與實務整合專題實作需依照EG3001、EG3002、EG3003順序修習」，
-      一串課號規定修習順序；成績單有學年學期欄位的話會比對真正的修課順序，沒有的話至少能抓出
-      「後面的通過了、前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）
-      一樣給 "na"。
+    - prerequisite（先修規定）：底下合併了兩種形狀，用 `codes` 有沒有填來分辨用哪一種，
+      同一條規則只會用到其中一種（另一種欄位留空）：
+      (1) 沒填 codes：「觸發課號通過了 → 要求課號要通過夠多門」，例如「微積分任一門通過才能修
+      工程數學」「四門課任兩門以上才能修程序設計」「學士論文Ⅰ通過才能修學士論文Ⅱ」。trigger_codes
+      一門都沒通過就代表這條規則根本沒被觸發（例如沒修工程數學），status 給 "na"（不適用），不算
+      沒過，也不列入及格判定，避免跟學生根本沒選的課無關的規則害他被判不及格。
+      (2) 有填 codes：一串課號規定依序修習，例如「理論與實務整合專題實作需依照EG3001、EG3002、
+      EG3003順序修習」；成績單有學年學期欄位的話會比對真正的修課順序，沒有的話至少能抓出「後面的
+      通過了、前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）一樣給 "na"。
+      這兩種形狀底層都是同一個 _check_prerequisite() 判斷邏輯（依序修習就是把課號兩兩相鄰拆成
+      一條條「後面通過了就要求前面也通過」接起來），合併成同一個 kind 只是介面上少一個選項，
+      不用讓使用者猜「這條備註算先修規定還是順序修習規定」。
     - elective_source（選修學分來源）：例如「選修16學分中至少6學分要CH課號或特定課群」——必修/選修
       學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），這條
       規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。
@@ -461,33 +465,34 @@ def evaluate_note_rules(
         category = rule.get("category", "")
 
         if kind == "prerequisite":
-            trigger_codes = rule.get("trigger_codes") or []
-            require_codes = rule.get("require_codes") or []
-            require_count = rule.get("require_count") or len(require_codes) or 1
-            status, detail = _check_prerequisite(
-                passed_codes, trigger_codes, require_codes, require_count, term_by_code
-            )
-            results.append({"text": text, "kind": kind, "category": category, "status": status, "detail": detail})
-
-        elif kind == "sequence":
             codes = rule.get("codes") or []
-            if not any(c in passed_codes for c in codes):
-                results.append({"text": text, "kind": kind, "category": category, "status": "na", "detail": ""})
-                continue
-            # 每相鄰兩門課都是一條「後面通過了就要求前面也通過（而且要先通過）」的先修規定（1取1），
-            # 抓到第一個違反順序的地方就回報，不用再往後檢查。
-            violation_detail = None
-            for i in range(1, len(codes)):
-                pair_status, pair_detail = _check_prerequisite(
-                    passed_codes, [codes[i]], [codes[i - 1]], 1, term_by_code
+            if codes:
+                # 依序課號形狀：每相鄰兩門課都是一條「後面通過了就要求前面也通過（而且要先通過）」
+                # 的先修規定（1取1），抓到第一個違反順序的地方就回報，不用再往後檢查。
+                if not any(c in passed_codes for c in codes):
+                    results.append({"text": text, "kind": kind, "category": category, "status": "na", "detail": ""})
+                    continue
+                violation_detail = None
+                for i in range(1, len(codes)):
+                    pair_status, pair_detail = _check_prerequisite(
+                        passed_codes, [codes[i]], [codes[i - 1]], 1, term_by_code
+                    )
+                    if pair_status == "fail":
+                        violation_detail = pair_detail or f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
+                        break
+                status = "fail" if violation_detail else "ok"
+                results.append(
+                    {"text": text, "kind": kind, "category": category, "status": status, "detail": violation_detail or ""}
                 )
-                if pair_status == "fail":
-                    violation_detail = pair_detail or f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
-                    break
-            status = "fail" if violation_detail else "ok"
-            results.append(
-                {"text": text, "kind": kind, "category": category, "status": status, "detail": violation_detail or ""}
-            )
+            else:
+                # 觸發→條件形狀
+                trigger_codes = rule.get("trigger_codes") or []
+                require_codes = rule.get("require_codes") or []
+                require_count = rule.get("require_count") or len(require_codes) or 1
+                status, detail = _check_prerequisite(
+                    passed_codes, trigger_codes, require_codes, require_count, term_by_code
+                )
+                results.append({"text": text, "kind": kind, "category": category, "status": status, "detail": detail})
 
         elif kind == "elective_source":
             min_source = rule.get("min_source_credits") or 0
@@ -801,7 +806,6 @@ def _normalize_course(index: int, c: dict) -> dict:
 _NOTE_RULE_KIND_LABELS = {
     "info": "純提醒",
     "prerequisite": "先修規定",
-    "sequence": "順序修習規定",
     "elective_source": "選修學分來源",
 }
 
@@ -880,11 +884,15 @@ def _build_note_rule(
 ) -> dict:
     rule = {"kind": kind, "category": category.strip(), "text": text}
     if kind == "prerequisite":
-        rule["trigger_codes"] = _parse_code_list(trigger_codes)
-        rule["require_codes"] = _parse_code_list(require_codes)
-        rule["require_count"] = require_count or len(rule["require_codes"]) or 1
-    elif kind == "sequence":
-        rule["codes"] = _parse_code_list(codes)
+        # 「依序課號」欄位有填就是順序修習形狀，沒填才是觸發→條件形狀——同一條規則只會用到一種，
+        # 不用把另一種形狀的空欄位也存進 rules.yaml。
+        codes_list = _parse_code_list(codes)
+        if codes_list:
+            rule["codes"] = codes_list
+        else:
+            rule["trigger_codes"] = _parse_code_list(trigger_codes)
+            rule["require_codes"] = _parse_code_list(require_codes)
+            rule["require_count"] = require_count or len(rule["require_codes"]) or 1
     elif kind == "elective_source":
         rule["min_source_credits"] = min_source_credits or 0
         rule["source_code_prefixes"] = _parse_code_list(source_code_prefixes)
