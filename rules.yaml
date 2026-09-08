@@ -1207,7 +1207,7 @@
     tier: 系訂必修
     note: ''
   group_requirements:
-    專題必選修: 2
+    專題必選修: 1
   note_rules:
   - kind: elective_source
     category: 二、院、系訂必修
@@ -1253,10 +1253,5 @@
     - CH3059
     - CH3011
     require_count: 2
-  - kind: prerequisite
-    category: 三、雙主修規定
-    text: '12'
-    codes:
-    - CH1012
   required_credits: 112
   elective_credits: 16.0
