@@ -347,6 +347,38 @@
       </div>
       {% endif %}
 
+      <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+        <p class="text-xs font-medium text-blue-800 mb-1">規則同步（給多台電腦各自安裝時用）</p>
+        <p class="text-xs text-blue-700 mb-3">
+          每台電腦是各自獨立安裝、獨立存一份規則資料，改了不會自動同步到別台電腦。
+          在這裡「匯出規則」下載檔案，傳給同事（Email、USB、共用資料夾都可以，不需要網路），
+          同事在自己電腦的這個頁面「匯入規則」上傳那個檔案，就能覆蓋成一樣的規則設定。
+          <b>匯入是整份覆蓋</b>（所有學年度的規則一起換掉，不是只換有變動的部分），
+          匯入前系統會自動備份現有規則成 <code class="bg-white px-1 rounded">rules.yaml.bak</code>，
+          真的匯錯的話可以請管理者手動把備份檔案復原回來。
+        </p>
+        {% if import_error %}
+        <p class="text-xs text-red-700 font-medium mb-3">
+          ⚠️ 匯入失敗：這份檔案的格式看起來不是有效的規則檔（rules.yaml），沒有覆蓋現有規則。
+        </p>
+        {% endif %}
+        <div class="flex items-center gap-3 flex-wrap">
+          <a href="/admin/rules/export"
+             class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
+            匯出規則（下載 rules.yaml）
+          </a>
+          <form method="post" action="/admin/rules/import" enctype="multipart/form-data"
+                class="flex items-center gap-2 flex-wrap"
+                onsubmit="return confirm('匯入會整份覆蓋掉這台電腦目前所有學年度的規則設定，確定要匯入嗎？（會先自動備份現有規則）')">
+            <input type="hidden" name="year" value="{{ year }}" />
+            <input type="file" name="file" accept=".yaml,.yml" required class="text-sm" />
+            <button type="submit" class="bg-white border border-blue-600 text-blue-600 text-sm px-3 py-1.5 rounded-md hover:bg-blue-50 whitespace-nowrap">
+              匯入規則（整份覆蓋）
+            </button>
+          </form>
+        </div>
+      </div>
+
     </div>
 
     <!-- ============ 分頁籤三：備註規則設定 ============ -->
