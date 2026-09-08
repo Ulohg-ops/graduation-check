@@ -442,6 +442,10 @@ def evaluate_note_rules(
       學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），這條
       規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。
       不是對照固定課號清單，而是要從成績單裡挑出「已通過但不在必修清單裡」的課當選修學分來源。
+      同一筆規則底下有兩組獨立的子條件，都設定才都要通過、只設定一組就只檢查那一組：
+      正向的「符合來源條件」（min_source_credits/source_code_prefixes/source_extra_codes，
+      例如至少6學分要CH開頭或名單內的課）跟反向的「排除來源條件」（min_exclude_credits/
+      exclude_code_prefixes，例如至少3學分要「不是」CH開頭，也就是外系課程）。
     - info：像「同一學期不可同時修讀X和Y」「依本校雙主修辦法」這種沒有學期資料/純政策引用、
       根本沒辦法從成績單自動判斷的備註，就只顯示文字提醒，不判斷完成與否。
     """
@@ -498,14 +502,35 @@ def evaluate_note_rules(
                 or c["name"] in extra_matches
                 or any(c["code"].startswith(p) for p in prefixes)
             )
-            ok = source_total >= min_source
+            source_ok = source_total >= min_source
+            detail_parts = [f"符合來源條件 {source_total}/{min_source}"]
+
+            # 排除門檻是「反過來」的來源條件：選修學分裡「不是」某些課號前綴的部分要有多少學分
+            # （例如「至少3學分要外系課程」＝選修裡「不是CH開頭」的部分要≥3學分）。跟上面的
+            # 「符合來源條件」是同一個 elective_source kind 底下兩組獨立的子條件，都設定才都要通過；
+            # 只設定其中一組（另一組留空/0）就只檢查那一組，這樣同一個 kind 可以同時處理「至少X學分
+            # 要來自某類課」跟「至少Y學分要不是來自某類課」兩種形狀的備註，之後系上再出現類似的
+            # 選修來源子條件，大多能直接在 /admin 新增規則設定，不用再改程式碼。
+            min_exclude = rule.get("min_exclude_credits") or 0
+            exclude_prefixes = rule.get("exclude_code_prefixes") or []
+            exclude_ok = True
+            if min_exclude:
+                exclude_total = sum(
+                    c["credit"]
+                    for c in elective_courses
+                    if not any(c["code"].startswith(p) for p in exclude_prefixes)
+                )
+                exclude_ok = exclude_total >= min_exclude
+                detail_parts.append(f"排除來源條件 {exclude_total}/{min_exclude}")
+
+            ok = source_ok and exclude_ok
             results.append(
                 {
                     "text": text,
                     "kind": kind,
                     "category": category,
                     "status": "ok" if ok else "fail",
-                    "detail": f"符合來源條件 {source_total}/{min_source}",
+                    "detail": "；".join(detail_parts),
                 }
             )
 
@@ -816,6 +841,8 @@ def _normalize_note_rule(index: int, r: dict) -> dict:
         "min_source_credits": r.get("min_source_credits", 0),
         "source_code_prefixes": ", ".join(r.get("source_code_prefixes") or []),
         "source_extra_codes": ", ".join(r.get("source_extra_codes") or []),
+        "min_exclude_credits": r.get("min_exclude_credits", 0),
+        "exclude_code_prefixes": ", ".join(r.get("exclude_code_prefixes") or []),
     }
 
 
@@ -848,6 +875,8 @@ def _build_note_rule(
     min_source_credits: float,
     source_code_prefixes: str,
     source_extra_codes: str,
+    min_exclude_credits: float,
+    exclude_code_prefixes: str,
 ) -> dict:
     rule = {"kind": kind, "category": category.strip(), "text": text}
     if kind == "prerequisite":
@@ -860,6 +889,8 @@ def _build_note_rule(
         rule["min_source_credits"] = min_source_credits or 0
         rule["source_code_prefixes"] = _parse_code_list(source_code_prefixes)
         rule["source_extra_codes"] = _parse_code_list(source_extra_codes)
+        rule["min_exclude_credits"] = min_exclude_credits or 0
+        rule["exclude_code_prefixes"] = _parse_code_list(exclude_code_prefixes)
     return rule
 
 
@@ -1202,6 +1233,8 @@ async def admin_note_rule_add(
     min_source_credits: float = Form(0),
     source_code_prefixes: str = Form(""),
     source_extra_codes: str = Form(""),
+    min_exclude_credits: float = Form(0),
+    exclude_code_prefixes: str = Form(""),
 ):
     rules = load_rules()
     year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
@@ -1209,6 +1242,7 @@ async def admin_note_rule_add(
         _build_note_rule(
             kind, category, text, trigger_codes, require_codes, require_count, codes,
             min_source_credits, source_code_prefixes, source_extra_codes,
+            min_exclude_credits, exclude_code_prefixes,
         )
     )
     save_rules(rules)
@@ -1229,6 +1263,8 @@ async def admin_note_rule_update(
     min_source_credits: float = Form(0),
     source_code_prefixes: str = Form(""),
     source_extra_codes: str = Form(""),
+    min_exclude_credits: float = Form(0),
+    exclude_code_prefixes: str = Form(""),
 ):
     rules = load_rules()
     note_rules = rules.get(year, {}).get("note_rules", [])
@@ -1236,6 +1272,7 @@ async def admin_note_rule_update(
         note_rules[index] = _build_note_rule(
             kind, category, text, trigger_codes, require_codes, require_count, codes,
             min_source_credits, source_code_prefixes, source_extra_codes,
+            min_exclude_credits, exclude_code_prefixes,
         )
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}&tab=notes#note-row-{index}", status_code=303)
