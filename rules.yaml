@@ -291,7 +291,7 @@
     require_codes:
     - CH4071
     require_count: 1
-  - kind: sequence
+  - kind: prerequisite
     category: 二、院、系訂必修
     text: 修習理論與實務整合專題實作者，需依照EG3001、EG3002、EG3003順序修習。
     codes:
@@ -604,7 +604,7 @@
     require_codes:
     - CH4071
     require_count: 1
-  - kind: sequence
+  - kind: prerequisite
     category: 二、院、系訂必修
     text: 修習理論與實務整合專題實作者，需依照EG3001、EG3002、EG3003順序修習。
     codes:
@@ -917,7 +917,7 @@
     require_codes:
     - CH4071
     require_count: 1
-  - kind: sequence
+  - kind: prerequisite
     category: 二、院、系訂必修
     text: 修習理論與實務整合專題實作者，需依照EG3001、EG3002、EG3003順序修習。
     codes:
@@ -1235,7 +1235,7 @@
     require_codes:
     - CH4071
     require_count: 1
-  - kind: sequence
+  - kind: prerequisite
     category: 二、院、系訂必修
     text: 修習理論與實務整合專題實作者，需依照EG3001、EG3002、EG3003順序修習。
     codes:
@@ -1253,7 +1253,7 @@
     - CH3059
     - CH3011
     require_count: 2
-  - kind: sequence
+  - kind: prerequisite
     category: 三、雙主修規定
     text: '12'
     codes:
