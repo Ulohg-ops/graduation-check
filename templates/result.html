@@ -92,7 +92,7 @@
       {% if r.elective_courses %}
       <details class="mb-4">
         <summary class="text-xs text-gray-500 cursor-pointer hover:underline">
-          📄 被判定為選修學分的課程（{{ r.elective_courses | length }} 科目，共 {{ r.elective_credit_total }} 學分）
+          📄 本系統判定為選修學分的課程（{{ r.elective_courses | length }} 科目，共 {{ r.elective_credit_total }} 學分）
         </summary>
         <ul class="text-sm text-gray-700 mt-2 space-y-0.5 pl-4 list-disc list-inside">
           {% for c in r.elective_courses %}
