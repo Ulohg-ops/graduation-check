@@ -102,40 +102,6 @@
       </details>
       {% endif %}
 
-      {% if r.missing_required %}
-      <div class="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-        <p class="text-sm font-medium text-red-800 mb-2">📚 對照 {{ year }} 學年度應修科目表，還沒通過的科目：</p>
-        <ul class="text-sm text-red-700 space-y-1">
-          {% for m in r.missing_required %}
-          <li>
-            {{ m.name }}（{{ m.missing_codes | join('、') }}）
-            {% if m.codes | length > 1 and m.missing_codes | length < m.codes | length %}
-            — 已修 {{ (m.codes | reject('in', m.missing_codes) | list) | join('、') }}，尚缺 {{ m.missing_codes | join('、') }}
-            {% endif %}
-            {% if m.note %}<span class="text-red-500">（{{ m.note }}）</span>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-
-      {% if r.unmet_categories %}
-      <div class="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
-        <p class="text-sm font-medium text-orange-800 mb-2">📋 教務處判定尚未完成的項目（來自 PDF 本身的畢業審核紀錄）：</p>
-        <ul class="text-sm text-orange-700 space-y-1">
-          {% for u in r.unmet_categories %}
-          <li>
-            {{ u.name }}（{{ u.code }}）：應修 {{ u.required_credit }} 學分 / {{ u.required_count }} 科目，
-            實修 {{ u.actual_credit }} 學分 / {{ u.actual_count }} 科目
-            {% if u.required_credit > u.actual_credit %}
-            — 還差 {{ u.required_credit - u.actual_credit }} 學分
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-
       {% if r.note_sections %}
       <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
         <p class="text-sm font-medium text-blue-800 mb-2">📌 應修科目表備註規則：</p>
@@ -156,6 +122,40 @@
         </div>
         {% endfor %}
       </div>
+      {% endif %}
+
+      {% if r.missing_required %}
+      <details open class="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+        <summary class="text-sm font-medium text-red-800 cursor-pointer hover:underline">📚 對照 {{ year }} 學年度應修科目表，還沒通過的科目：</summary>
+        <ul class="text-sm text-red-700 space-y-1 mt-2">
+          {% for m in r.missing_required %}
+          <li>
+            {{ m.name }}（{{ m.missing_codes | join('、') }}）
+            {% if m.codes | length > 1 and m.missing_codes | length < m.codes | length %}
+            — 已修 {{ (m.codes | reject('in', m.missing_codes) | list) | join('、') }}，尚缺 {{ m.missing_codes | join('、') }}
+            {% endif %}
+            {% if m.note %}<span class="text-red-500">（{{ m.note }}）</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+
+      {% if r.unmet_categories %}
+      <details open class="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
+        <summary class="text-sm font-medium text-orange-800 cursor-pointer hover:underline">📋 教務處判定尚未完成的項目（來自 PDF 本身的畢業審核紀錄）：</summary>
+        <ul class="text-sm text-orange-700 space-y-1 mt-2">
+          {% for u in r.unmet_categories %}
+          <li>
+            {{ u.name }}（{{ u.code }}）：應修 {{ u.required_credit }} 學分 / {{ u.required_count }} 科目，
+            實修 {{ u.actual_credit }} 學分 / {{ u.actual_count }} 科目
+            {% if u.required_credit > u.actual_credit %}
+            — 還差 {{ u.required_credit - u.actual_credit }} 學分
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
       {% endif %}
 
       {% if r.courses %}
