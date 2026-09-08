@@ -8,12 +8,15 @@ from typing import List, Optional
 import pdfplumber
 import yaml
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 BASE_DIR = Path(__file__).resolve().parent
 RULES_FILE = BASE_DIR / "rules.yaml"
+# 「匯入規則」覆蓋前的備份，只保留最近一次匯入前的版本（不是每次匯入都留一份新檔案），
+# 匯錯檔案的話可以手動把這個複製回 rules.yaml 救回來。
+RULES_BACKUP_FILE = BASE_DIR / "rules.yaml.bak"
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB，一般文字型成績單PDF遠小於這個數字，超過大概是傳錯檔案
 MAX_FILES = 30  # 一次最多同時處理幾份，避免有人整個資料夾誤傳上來拖垮伺服器
@@ -885,17 +888,15 @@ def _group_options_and_requirements(required_courses: list, year_data: dict) -> 
     return group_options, group_requirements
 
 
-@app.get("/admin", response_class=HTMLResponse)
-async def admin(
-    request: Request,
-    year: Optional[str] = None,
+def _admin_context(
+    year: Optional[str],
     tab: str = "courses",
     edit: Optional[int] = None,
     edit_note: Optional[int] = None,
-):
-    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定」三個分頁籤，
-    用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」（例如表單送出
-    後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    import_error: bool = False,
+) -> dict:
+    """/admin 頁面（GET路由、跟「匯入規則失敗要重新顯示這個頁面」共用）的畫面資料，抽出來共用，
+    這樣匯入規則失敗時能重新顯示完整頁面內容（帶錯誤訊息），不用整個複製一份GET路由的邏輯。
     """
     rules = load_rules()
     years, selected_year, year_data = _resolve_year(rules, year)
@@ -941,30 +942,42 @@ async def admin(
     )
     course_catalog = _course_catalog(year_data.get("required_courses", []))
 
-    return templates.TemplateResponse(
-        request,
-        "admin.html",
-        {
-            "active_tab": tab,
-            "years": years,
-            "year": selected_year,
-            "total_credits": year_data.get("total_credits", 0),
-            "required_credits": year_data.get("required_credits", 0),
-            "elective_credits": year_data.get("elective_credits", 0),
-            "required_courses": required_courses,
-            "course_sections": course_sections,
-            "table_colspan": table_colspan,
-            "group_options": group_options,
-            "group_requirements": group_requirements,
-            "tier_options": tier_options,
-            "edit_index": edit,
-            "note_rules": note_rules,
-            "note_rule_kinds": _NOTE_RULE_KIND_LABELS,
-            "course_catalog": course_catalog,
-            "note_category_options": note_category_options,
-            "edit_note_index": edit_note,
-        },
-    )
+    return {
+        "active_tab": tab,
+        "years": years,
+        "year": selected_year,
+        "total_credits": year_data.get("total_credits", 0),
+        "required_credits": year_data.get("required_credits", 0),
+        "elective_credits": year_data.get("elective_credits", 0),
+        "required_courses": required_courses,
+        "course_sections": course_sections,
+        "table_colspan": table_colspan,
+        "group_options": group_options,
+        "group_requirements": group_requirements,
+        "tier_options": tier_options,
+        "edit_index": edit,
+        "note_rules": note_rules,
+        "note_rule_kinds": _NOTE_RULE_KIND_LABELS,
+        "course_catalog": course_catalog,
+        "note_category_options": note_category_options,
+        "edit_note_index": edit_note,
+        "import_error": import_error,
+    }
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin(
+    request: Request,
+    year: Optional[str] = None,
+    tab: str = "courses",
+    edit: Optional[int] = None,
+    edit_note: Optional[int] = None,
+):
+    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定」三個分頁籤，
+    用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」（例如表單送出
+    後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    """
+    return templates.TemplateResponse(request, "admin.html", _admin_context(year, tab, edit, edit_note))
 
 
 @app.post("/admin/year/add")
@@ -1236,3 +1249,39 @@ async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...)):
         note_rules.pop(index)
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
+
+
+@app.get("/admin/rules/export")
+async def admin_rules_export():
+    """把整份 rules.yaml 包成下載檔，方便系上人員手動同步到其他各自獨立安裝的電腦
+    （這個系統每台電腦是各自獨立一份規則資料，沒有連網同步）。"""
+    return Response(
+        content=RULES_FILE.read_bytes(),
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": "attachment; filename=rules.yaml"},
+    )
+
+
+@app.post("/admin/rules/import")
+async def admin_rules_import(request: Request, year: str = Form(""), file: UploadFile = File(...)):
+    """上傳一份 rules.yaml 檔案，整份覆蓋掉這台電腦目前的規則設定——用來對照「匯出規則」，
+    讓系上人員可以不用自己去檔案總管找檔案覆蓋，直接在網頁上同步另一台電腦匯出的規則。
+
+    整份覆蓋是刻意的設計（不是只合併有變動的學年度）：規則之間常常互相關聯（例如某個學年度的
+    note_rules、group_requirements要跟該學年度的required_courses對得起來），部分合併容易讓
+    資料兜不起來、產生看起來合理但實際上前後矛盾的規則。覆蓋前一定要先備份現有的
+    rules.yaml（成 rules.yaml.bak），才不會匯錯檔案就再也找不回原本這台電腦的資料。
+    """
+    content = await file.read()
+    try:
+        parsed = yaml.safe_load(content)
+    except yaml.YAMLError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        return templates.TemplateResponse(
+            request, "admin.html", _admin_context(year, tab="settings", import_error=True)
+        )
+
+    RULES_BACKUP_FILE.write_bytes(RULES_FILE.read_bytes())
+    save_rules({str(y): data for y, data in parsed.items()})
+    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
