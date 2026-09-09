@@ -385,12 +385,13 @@
     <div data-tab-panel="notes" {% if active_tab != 'notes' %}hidden{% endif %}>
       <details class="text-xs text-gray-500 mb-4">
         <summary class="cursor-pointer hover:underline">
-          應修科目表下方的備註（例如先修規定、選修學分來源限制），設定後會在檢核結果頁自動顯示完成狀態——三種規則類型說明
+          應修科目表下方的備註（例如選修學分來源限制），設定後會在檢核結果頁自動顯示完成狀態——規則類型說明
         </summary>
         <div class="mt-2 space-y-1">
           <p><b>純提醒</b>：只顯示文字，不判斷完成與否，例如「依本校雙主修辦法辦理」。</p>
-          <p><b>先修規定</b>：兩種形狀合併在同一個類型裡，填其中一種就好——(1) 通過「觸發課號」任一門，就要求「條件課號」裡至少通過幾門，例如「微積分任一門通過才能修工程數學」；(2) 一串課號要依序修習，例如「理論與實務整合專題實作需依照EG3001、EG3002、EG3003順序修習」。</p>
-          <p><b>選修學分來源</b>：成績單裡「已通過但不在必修清單」的課，學分要達標，其中特定課號前綴/名單的部分也要達標（例如「選修16學分中至少6學分要CH課號」），也可以反過來設定「排除」某些課號前綴的部分要達標（例如「至少3學分要外系課程」）。</p>
+          <p><b>選修學分來源（須屬於）</b>：成績單裡「已通過但不在必修清單」的課（選修學分池）當中，特定課號前綴/名單的部分要達標（例如「選修16學分中至少6學分要CH課號」）。</p>
+          <p><b>選修學分來源（不可屬於）</b>：同樣限定在選修學分池範圍內，但反過來——「不是」特定課號前綴的部分要達標（例如「至少3學分要外系課程」）。跟「須屬於」是獨立的兩條規則，同一段備註如果兩種條件都有，就開兩條、類別填一樣的名稱即可。</p>
+          <p><b>學分門檻（不限選修）</b>：不管課有沒有被算進必修學分池，直接對整份成績單算符合條件的學分加總，只要達標即可（例如「通識核心三大領域至少須修習一個領域」）。</p>
           <p>每筆規則下面只要填該類型用得到的欄位即可，其他留空沒關係；「類別」是給檢核結果頁分段顯示用的（照PDF原本的一/二/三段落分），同一類別打一樣的名稱即可。</p>
         </div>
       </details>
@@ -420,24 +421,9 @@
               <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div data-kind-fields="prerequisite">
-            <p class="text-xs text-gray-400 mb-1">下面兩種只填一種：「先修條件」做「觸發課號通過了才要求條件課號」；「依序課號」做「一串課號依序修習」。</p>
-            <div class="flex items-end gap-2 flex-wrap mb-2">
-              {{ course_input('trigger_codes', 'edit-' ~ r.index ~ '-trigger_codes', r.trigger_codes, '先修條件：觸發課號（逗號分隔）', '例如 CH2009, CH2010') }}
-              {{ course_input('require_codes', 'edit-' ~ r.index ~ '-require_codes', r.require_codes, '先修條件：條件課號（逗號分隔）', '例如 MA1003, MA1004') }}
-              <div>
-                <label class="block text-xs text-gray-500">先修條件：至少通過幾門</label>
-                <input type="number" name="require_count" value="{{ r.require_count }}" min="0"
-                       class="border rounded-md p-1 text-sm w-20" />
-              </div>
-            </div>
-            <div class="flex items-end gap-2 flex-wrap">
-              {{ course_input('codes', 'edit-' ~ r.index ~ '-codes', r.codes, '依序課號（逗號分隔，照修習順序列）', '例如 EG3001, EG3002, EG3003', 'w-64') }}
-            </div>
-          </div>
           <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_source">
             <div>
-              <label class="block text-xs text-gray-500">選修學分來源：至少</label>
+              <label class="block text-xs text-gray-500">選修學分須屬於：至少</label>
               <input type="number" step="0.5" name="min_source_credits" value="{{ r.min_source_credits }}"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
@@ -447,8 +433,10 @@
                      class="border rounded-md p-1 text-sm w-28" />
             </div>
             {{ course_input('source_extra_codes', 'edit-' ~ r.index ~ '-source_extra_codes', r.source_extra_codes, '額外課號或課名名單（逗號分隔，課號課名都可混著填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
+          </div>
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_exclusion">
             <div>
-              <label class="block text-xs text-gray-500">排除來源：至少（選填，例如外系課程門檻）</label>
+              <label class="block text-xs text-gray-500">選修學分不可屬於：至少</label>
               <input type="number" step="0.5" name="min_exclude_credits" value="{{ r.min_exclude_credits }}"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
@@ -458,31 +446,49 @@
                      class="border rounded-md p-1 text-sm w-28" />
             </div>
           </div>
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_threshold">
+            <div>
+              <label class="block text-xs text-gray-500">學分門檻：至少</label>
+              <input type="number" step="0.5" name="min_credits" value="{{ r.min_credits }}"
+                     class="border rounded-md p-1 text-sm w-24" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500">課號前綴（逗號分隔，符合任一即算，不限選修）</label>
+              <input type="text" name="code_prefixes" value="{{ r.code_prefixes }}" placeholder="例如 CC01, CC02, CC04"
+                     class="border rounded-md p-1 text-sm w-56" />
+            </div>
+            {{ course_input('extra_codes', 'edit-' ~ r.index ~ '-extra_codes', r.extra_codes, '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010', 'w-64') }}
+          </div>
           <div class="flex items-center gap-3">
             <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
             <a href="/admin?year={{ year }}&tab=notes#note-row-{{ r.index }}" class="text-sm text-gray-500 hover:underline">取消</a>
           </div>
         </form>
         {% else %}
-        <div class="flex justify-between items-start gap-3">
+        <div class="flex justify-between items-start gap-3 {{ 'opacity-50' if r.hidden else '' }}">
           <div>
             <span class="inline-block text-xs bg-purple-100 text-purple-700 rounded px-1.5 py-0.5 mr-2">{{ r.kind_label }}</span>
             {% if r.category %}
             <span class="inline-block text-xs bg-gray-200 text-gray-600 rounded px-1.5 py-0.5 mr-2">{{ r.category }}</span>
             {% endif %}
-            <span class="text-sm text-gray-800">{{ r.text }}</span>
-            {% if r.kind == 'prerequisite' and r.codes %}
-            <p class="text-xs text-gray-500 mt-1">需依序修習：{{ r.codes }}</p>
-            {% elif r.kind == 'prerequisite' %}
-            <p class="text-xs text-gray-500 mt-1">通過「{{ r.trigger_codes }}」任一門 → 需通過「{{ r.require_codes }}」中至少 {{ r.require_count }} 門</p>
-            {% elif r.kind == 'elective_source' %}
-            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號前綴「{{ r.source_code_prefixes }}」或名單「{{ r.source_extra_codes }}」的部分需 ≥ {{ r.min_source_credits }}（必修/選修學分門檻在「科目管理」分頁設定）</p>
-            {% if r.min_exclude_credits %}
-            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號「不是」前綴「{{ r.exclude_code_prefixes }}」的部分需 ≥ {{ r.min_exclude_credits }}</p>
+            {% if r.hidden %}
+            <span class="inline-block text-xs bg-yellow-100 text-yellow-700 rounded px-1.5 py-0.5 mr-2">結果頁已隱藏</span>
             {% endif %}
+            <span class="text-sm text-gray-800">{{ r.text }}</span>
+            {% if r.kind == 'elective_source' %}
+            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號前綴「{{ r.source_code_prefixes }}」或名單「{{ r.source_extra_codes }}」的部分需 ≥ {{ r.min_source_credits }}（必修/選修學分門檻在「科目管理」分頁設定）</p>
+            {% elif r.kind == 'elective_exclusion' %}
+            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號「不是」前綴「{{ r.exclude_code_prefixes }}」的部分需 ≥ {{ r.min_exclude_credits }}</p>
+            {% elif r.kind == 'credit_threshold' %}
+            <p class="text-xs text-gray-500 mt-1">整份成績單裡，課號前綴「{{ r.code_prefixes }}」{% if r.extra_codes %}或名單「{{ r.extra_codes }}」{% endif %}的學分加總需 ≥ {{ r.min_credits }}（不限已被算進必修或選修）</p>
             {% endif %}
           </div>
           <div class="flex items-center gap-3 whitespace-nowrap">
+            <form method="post" action="/admin/note_rule/toggle_hidden" class="inline">
+              <input type="hidden" name="year" value="{{ year }}" />
+              <input type="hidden" name="index" value="{{ r.index }}" />
+              <button type="submit" class="text-sm text-gray-500 hover:underline">{{ '顯示' if r.hidden else '隱藏' }}</button>
+            </form>
             <a href="/admin?year={{ year }}&tab=notes&edit_note={{ r.index }}#note-row-{{ r.index }}" class="text-sm text-blue-600 hover:underline">編輯</a>
             <form method="post" action="/admin/note_rule/delete" class="inline"
                   onsubmit="return confirm('刪除這條備註規則？')">
@@ -528,24 +534,9 @@
               <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div data-kind-fields="prerequisite">
-            <p class="text-xs text-gray-400 mb-1">下面兩種只填一種：「先修條件」做「觸發課號通過了才要求條件課號」；「依序課號」做「一串課號依序修習」。</p>
-            <div class="flex items-end gap-2 flex-wrap mb-2">
-              {{ course_input('trigger_codes', 'add-trigger_codes', '', '先修條件：觸發課號（逗號分隔）', '例如 CH2009, CH2010') }}
-              {{ course_input('require_codes', 'add-require_codes', '', '先修條件：條件課號（逗號分隔）', '例如 MA1003, MA1004') }}
-              <div>
-                <label class="block text-xs text-gray-500">先修條件：至少通過幾門</label>
-                <input type="number" name="require_count" min="0" placeholder="預設全部"
-                       class="border rounded-md p-1 text-sm w-20" />
-              </div>
-            </div>
-            <div class="flex items-end gap-2 flex-wrap">
-              {{ course_input('codes', 'add-codes', '', '依序課號（逗號分隔，照修習順序列）', '例如 EG3001, EG3002, EG3003', 'w-64') }}
-            </div>
-          </div>
           <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_source">
             <div>
-              <label class="block text-xs text-gray-500">選修學分來源：至少</label>
+              <label class="block text-xs text-gray-500">選修學分須屬於：至少</label>
               <input type="number" step="0.5" name="min_source_credits"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
@@ -555,8 +546,10 @@
                      class="border rounded-md p-1 text-sm w-28" />
             </div>
             {{ course_input('source_extra_codes', 'add-source_extra_codes', '', '額外課號或課名名單（逗號分隔，課號課名都可混著填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
+          </div>
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_exclusion">
             <div>
-              <label class="block text-xs text-gray-500">排除來源：至少（選填，例如外系課程門檻）</label>
+              <label class="block text-xs text-gray-500">選修學分不可屬於：至少</label>
               <input type="number" step="0.5" name="min_exclude_credits"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
@@ -565,6 +558,19 @@
               <input type="text" name="exclude_code_prefixes" placeholder="例如 CH"
                      class="border rounded-md p-1 text-sm w-28" />
             </div>
+          </div>
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_threshold">
+            <div>
+              <label class="block text-xs text-gray-500">學分門檻：至少</label>
+              <input type="number" step="0.5" name="min_credits"
+                     class="border rounded-md p-1 text-sm w-24" />
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500">課號前綴（逗號分隔，符合任一即算，不限選修）</label>
+              <input type="text" name="code_prefixes" placeholder="例如 CC01, CC02, CC04"
+                     class="border rounded-md p-1 text-sm w-56" />
+            </div>
+            {{ course_input('extra_codes', 'add-extra_codes', '', '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010', 'w-64') }}
           </div>
           <button type="submit"
                   class="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-purple-700 whitespace-nowrap">

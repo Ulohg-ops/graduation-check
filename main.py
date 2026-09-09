@@ -370,54 +370,6 @@ def _credit_breakdown(
     }
 
 
-def _check_prerequisite(
-    passed_codes: set,
-    trigger_codes: list,
-    require_codes: list,
-    require_count: int,
-    term_by_code: dict = None,
-) -> tuple:
-    """先修規定的核心判斷：`trigger_codes` 有任一門通過，才要求 `require_codes` 裡至少通過
-    `require_count` 門。回傳 (status, detail)，status 是 "na"（trigger都沒通過，規則不適用）/
-    "ok"/"fail"。
-
-    這也是「順序修習規定」(sequence) 的底層邏輯——A→B→C依序修習，拆開來看就是「B通過了就要求A
-    也通過（1取1）」「C通過了就要求B也通過（1取1）」兩條先修規定接在一起，兩種 kind 共用同一個
-    判斷函式，不用各自重複寫一次「trigger通過了才檢查require門數夠不夠」這段邏輯。
-
-    `term_by_code`（課號→學年學期整數，數字越大代表學期越晚，來自成績單「學年學期」欄位）是選填的：
-    沒帶的話只看「有沒有通過」，跟以前行為一樣。有帶的話，門數夠了之後還會多檢查一次「真的是先修完
-    才修trigger」——比對通過的require_codes是不是真的在trigger最早通過的那個學期「之前」完成，
-    抓出「順序真的顛倒過，只是後來兩門都補到及格」這種只看有沒有通過會漏掉的違規。某門課的學期
-    資料缺失（None，例如舊格式PDF沒有這欄）時當作「無法反證」，不算違規，避免因為資料不全就誤判。
-    """
-    term_by_code = term_by_code or {}
-    if not any(t in passed_codes for t in trigger_codes):
-        return "na", ""
-    # 算「通過幾門」一定要用不重複的課號集合去算：require_codes 萬一不小心重複打了同一個課號
-    # 兩次（例如手動輸入、或直接改 rules.yaml），不能讓同一門通過的課被算兩次、虛報通過門數。
-    distinct_required = set(require_codes)
-    passed_required = distinct_required & passed_codes
-    if len(passed_required) < require_count:
-        missing = dict.fromkeys(r for r in require_codes if r not in passed_codes)  # 去重但保留原本順序
-        return "fail", f"已通過{len(passed_required)}/{require_count}門，尚缺：{'、'.join(missing)}"
-
-    trigger_terms = [
-        term_by_code[t] for t in trigger_codes if t in passed_codes and term_by_code.get(t) is not None
-    ]
-    if not trigger_terms:
-        return "ok", ""
-    earliest_trigger_term = min(trigger_terms)
-
-    on_time = {
-        r for r in passed_required if term_by_code.get(r) is None or term_by_code[r] < earliest_trigger_term
-    }
-    if len(on_time) >= require_count:
-        return "ok", ""
-    too_late = sorted(passed_required - on_time)
-    return "fail", f"已通過「{'、'.join(too_late)}」，但是跟先修課程同一學期或之後才通過，不符合先修順序"
-
-
 def evaluate_note_rules(
     note_rules: list,
     passed_codes: set,
@@ -427,35 +379,32 @@ def evaluate_note_rules(
 ) -> list:
     """把應修科目表下方的「備註」規則（rules.yaml 的 note_rules）拿去對照成績單，算出每條的完成狀態。
 
-    三種 kind 對應畢業門檻PDF備註裡實際會出現的規則形狀，設計成可重複套用的通用類型，
+    幾種 kind 對應畢業門檻PDF備註裡實際會出現的規則形狀，設計成可重複套用的通用類型，
     之後系上備註調整時大多只要用既有 kind 開新規則，不用改程式碼：
-    - prerequisite（先修規定）：底下合併了兩種形狀，用 `codes` 有沒有填來分辨用哪一種，
-      同一條規則只會用到其中一種（另一種欄位留空）：
-      (1) 沒填 codes：「觸發課號通過了 → 要求課號要通過夠多門」，例如「微積分任一門通過才能修
-      工程數學」「四門課任兩門以上才能修程序設計」「學士論文Ⅰ通過才能修學士論文Ⅱ」。trigger_codes
-      一門都沒通過就代表這條規則根本沒被觸發（例如沒修工程數學），status 給 "na"（不適用），不算
-      沒過，也不列入及格判定，避免跟學生根本沒選的課無關的規則害他被判不及格。
-      (2) 有填 codes：一串課號規定依序修習，例如「理論與實務整合專題實作需依照EG3001、EG3002、
-      EG3003順序修習」；成績單有學年學期欄位的話會比對真正的修課順序，沒有的話至少能抓出「後面的
-      通過了、前面的卻沒通過」這種違反順序的矛盾情況。一門都沒通過（還沒碰這個系列課）一樣給 "na"。
-      這兩種形狀底層都是同一個 _check_prerequisite() 判斷邏輯（依序修習就是把課號兩兩相鄰拆成
-      一條條「後面通過了就要求前面也通過」接起來），合併成同一個 kind 只是介面上少一個選項，
-      不用讓使用者猜「這條備註算先修規定還是順序修習規定」。
-    - elective_source（選修學分來源）：例如「選修16學分中至少6學分要CH課號或特定課群」——必修/選修
-      學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），這條
-      規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。
-      不是對照固定課號清單，而是要從成績單裡挑出「已通過但不在必修清單裡」的課當選修學分來源。
-      同一筆規則底下有兩組獨立的子條件，都設定才都要通過、只設定一組就只檢查那一組：
-      正向的「符合來源條件」（min_source_credits/source_code_prefixes/source_extra_codes，
-      例如至少6學分要CH開頭或名單內的課）跟反向的「排除來源條件」（min_exclude_credits/
-      exclude_code_prefixes，例如至少3學分要「不是」CH開頭，也就是外系課程）。
+    - elective_source（選修學分來源，須屬於）：例如「選修16學分中至少6學分要CH課號或特定課群」——
+      必修/選修學分「夠不夠」是 /check 的頂層門檻（跟總學分門檻同一層級，在應修科目表管理頁設定），
+      這條規則只管更細節的子條件：選修學分「從哪裡來」符不符合規定的來源。不是對照固定課號清單，
+      而是要從成績單裡挑出「已通過但不在必修清單裡」的課當選修學分來源，算 min_source_credits/
+      source_code_prefixes/source_extra_codes 指定的部分有沒有達標（例如至少6學分要CH開頭或
+      名單內的課）。
+    - elective_exclusion（選修學分來源，不可屬於）：跟 elective_source 同樣限定在選修學分池範圍內
+      算，但條件方向相反——選修學分裡「不是」min_exclude_credits/exclude_code_prefixes 指定的
+      部分要有多少學分（例如至少3學分要「不是」CH開頭，也就是外系課程）。故意拆成獨立的kind、不跟
+      elective_source合併，是因為「屬於」跟「不屬於」是概念上完全不同的兩件事，各自只填自己用得到
+      的欄位，同一段備註如果同時有兩種條件（例如「至少6學分CH課程」+「至少3學分外系課程」），
+      就開兩條規則、category填一樣的名稱，結果頁會自動歸在同一段落顯示。
+    - credit_threshold（學分門檻，不限選修）：例如「通識核心必修三大領域至少須修習一個領域」——
+      跟 elective_source 的正向條件形狀一樣（min_credits/code_prefixes/extra_codes），差別是
+      這條不管課是不是已經被算進必修學分池，直接對整份成績單（passed_courses）算符合條件的
+      學分加總，只要達標即可。適合「不是特定課號清單，而是課號某個前綴/範圍」但又不是選修學分
+      來源限制的規定；日後系上/校方公告類似「這幾個課群至少修一個」的新規定，只要能歸納出對應
+      的課號前綴，直接在 /admin 新增一條這種規則就好，不用再改程式碼。
     - info：像「同一學期不可同時修讀X和Y」「依本校雙主修辦法」這種沒有學期資料/純政策引用、
       根本沒辦法從成績單自動判斷的備註，就只顯示文字提醒，不判斷完成與否。
     """
     elective_courses = _credit_breakdown(required_courses, group_requirements, passed_codes, passed_courses)[
         "elective_courses"
     ]
-    term_by_code = {c["code"]: c.get("term") for c in passed_courses if c["code"]}
 
     results = []
     for rule in note_rules:
@@ -463,83 +412,89 @@ def evaluate_note_rules(
         text = rule.get("text", "")
         category = rule.get("category", "")
 
-        if kind == "prerequisite":
-            codes = rule.get("codes") or []
-            if codes:
-                # 依序課號形狀：每相鄰兩門課都是一條「後面通過了就要求前面也通過（而且要先通過）」
-                # 的先修規定（1取1），抓到第一個違反順序的地方就回報，不用再往後檢查。
-                if not any(c in passed_codes for c in codes):
-                    results.append({"text": text, "kind": kind, "category": category, "status": "na", "detail": ""})
-                    continue
-                violation_detail = None
-                for i in range(1, len(codes)):
-                    pair_status, pair_detail = _check_prerequisite(
-                        passed_codes, [codes[i]], [codes[i - 1]], 1, term_by_code
-                    )
-                    if pair_status == "fail":
-                        violation_detail = pair_detail or f"已通過{codes[i]}，但尚未通過{codes[i - 1]}，不符合修習順序"
-                        break
-                status = "fail" if violation_detail else "ok"
-                results.append(
-                    {"text": text, "kind": kind, "category": category, "status": status, "detail": violation_detail or ""}
-                )
-            else:
-                # 觸發→條件形狀
-                trigger_codes = rule.get("trigger_codes") or []
-                require_codes = rule.get("require_codes") or []
-                require_count = rule.get("require_count") or len(require_codes) or 1
-                status, detail = _check_prerequisite(
-                    passed_codes, trigger_codes, require_codes, require_count, term_by_code
-                )
-                results.append({"text": text, "kind": kind, "category": category, "status": status, "detail": detail})
-
-        elif kind == "elective_source":
+        if kind == "elective_source":
             min_source = rule.get("min_source_credits") or 0
             prefixes = rule.get("source_code_prefixes") or []
             # 額外名單同時比對課號跟課名：學院公告的課群名單有時只給課名、沒有課號（例如還沒實際開課
             # 排課號），兩種都收才不會因為拿到的名單格式不一樣就沒辦法用。
             extra_matches = set(rule.get("source_extra_codes") or [])
-            source_total = sum(
-                c["credit"]
+            source_courses = [
+                c
                 for c in elective_courses
                 if c["code"] in extra_matches
                 or c["name"] in extra_matches
                 or any(c["code"].startswith(p) for p in prefixes)
-            )
-            source_ok = source_total >= min_source
-            detail_parts = [f"符合來源條件 {source_total}/{min_source}"]
-
-            # 排除門檻是「反過來」的來源條件：選修學分裡「不是」某些課號前綴的部分要有多少學分
-            # （例如「至少3學分要外系課程」＝選修裡「不是CH開頭」的部分要≥3學分）。跟上面的
-            # 「符合來源條件」是同一個 elective_source kind 底下兩組獨立的子條件，都設定才都要通過；
-            # 只設定其中一組（另一組留空/0）就只檢查那一組，這樣同一個 kind 可以同時處理「至少X學分
-            # 要來自某類課」跟「至少Y學分要不是來自某類課」兩種形狀的備註，之後系上再出現類似的
-            # 選修來源子條件，大多能直接在 /admin 新增規則設定，不用再改程式碼。
-            min_exclude = rule.get("min_exclude_credits") or 0
-            exclude_prefixes = rule.get("exclude_code_prefixes") or []
-            exclude_ok = True
-            if min_exclude:
-                exclude_total = sum(
-                    c["credit"]
-                    for c in elective_courses
-                    if not any(c["code"].startswith(p) for p in exclude_prefixes)
-                )
-                exclude_ok = exclude_total >= min_exclude
-                detail_parts.append(f"排除來源條件 {exclude_total}/{min_exclude}")
-
-            ok = source_ok and exclude_ok
+            ]
+            source_total = sum(c["credit"] for c in source_courses)
+            ok = source_total >= min_source
             results.append(
                 {
                     "text": text,
                     "kind": kind,
                     "category": category,
                     "status": "ok" if ok else "fail",
-                    "detail": "；".join(detail_parts),
+                    "detail": f"符合來源條件 {source_total}/{min_source}",
+                    "source_courses": source_courses,
+                }
+            )
+
+        elif kind == "elective_exclusion":
+            # 「不能屬於」的來源限制：選修學分裡「不是」某些課號前綴的部分要有多少學分
+            # （例如「至少3學分要外系課程」＝選修裡「不是CH開頭」的部分要≥3學分）。跟 elective_source
+            # 一樣限定在選修學分池（elective_courses）範圍內算，差別只在條件方向相反，拆成獨立的kind
+            # 是因為「屬於」跟「不屬於」是概念上完全不同的兩件事，各自只填自己用得到的欄位，
+            # 介面上也不用讓使用者在同一條規則裡同時看到兩組容易搞混的條件。
+            min_exclude = rule.get("min_exclude_credits") or 0
+            exclude_prefixes = rule.get("exclude_code_prefixes") or []
+            exclude_courses = [
+                c for c in elective_courses if not any(c["code"].startswith(p) for p in exclude_prefixes)
+            ]
+            exclude_total = sum(c["credit"] for c in exclude_courses)
+            ok = exclude_total >= min_exclude
+            results.append(
+                {
+                    "text": text,
+                    "kind": kind,
+                    "category": category,
+                    "status": "ok" if ok else "fail",
+                    "detail": f"排除來源條件 {exclude_total}/{min_exclude}",
+                    "exclude_courses": exclude_courses,
+                }
+            )
+
+        elif kind == "credit_threshold":
+            min_credits = rule.get("min_credits") or 0
+            prefixes = rule.get("code_prefixes") or []
+            extra_matches = set(rule.get("extra_codes") or [])
+            matched = [
+                c
+                for c in passed_courses
+                if c["code"] and (
+                    c["code"] in extra_matches
+                    or c["name"] in extra_matches
+                    or any(c["code"].startswith(p) for p in prefixes)
+                )
+            ]
+            total = sum(c["credit"] for c in matched)
+            ok = total >= min_credits
+            results.append(
+                {
+                    "text": text,
+                    "kind": kind,
+                    "category": category,
+                    "status": "ok" if ok else "fail",
+                    "detail": f"已修 {total}/{min_credits} 學分",
+                    "source_courses": matched,
                 }
             )
 
         else:
             results.append({"text": text, "kind": "info", "category": category, "status": "info", "detail": ""})
+
+    # 每個kind分支都是「一條規則對一筆結果」，note_rules跟results一一對應，直接zip回去標記
+    # 該筆規則自己有沒有被設成隱藏（結果頁顯示用，不影響判定，見_build_result_entry的說明）。
+    for rule, entry in zip(note_rules, results):
+        entry["hidden"] = bool(rule.get("hidden"))
 
     return results
 
@@ -559,11 +514,6 @@ def _group_note_results_by_category(note_results: list) -> list:
             sections.append({"category": cat, "entries": []})
         sections[index_by_category[cat]]["entries"].append(n)
     return sections
-
-
-@app.get("/help", response_class=HTMLResponse)
-async def help_page(request: Request):
-    return templates.TemplateResponse(request, "help.html", {})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -637,7 +587,16 @@ def _build_result_entry(
     note_results = evaluate_note_rules(
         note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
     )
+    # 是否「通過」看的是全部備註規則（未過濾），跟「結果頁要不要顯示這條」是兩件事——系上在
+    # /admin把某條規則設成隱藏，只是不想在結果頁看到這行文字，不代表規則真的被違反時也不該讓
+    # 學生被判定不合格，所以note_sections（畫面顯示用）才套用隱藏設定，note_rules_failed
+    # （畢業資格判定用）永遠照全部規則算。
     note_rules_failed = any(n["status"] == "fail" for n in note_results)
+    # status為"na"（不適用）代表這條先修規定根本沒被這份成績單觸發（例如還沒修學士論文Ⅰ，
+    # 「修完才能修學士論文Ⅱ」這條規則對這個學生來說毫無意義）——不是通過也不是沒通過，
+    # 純粹跟這個學生無關，結果頁列出來只是雜訊，一律不顯示（結果頁專用過濾，note_results
+    # 完整清單、CSV匯出都還是看得到，只有畫面上的note_sections會濾掉）。
+    visible_note_results = [n for n in note_results if not n["hidden"] and n["status"] != "na"]
     return {
         "filename": filename,
         "error": None,
@@ -665,8 +624,11 @@ def _build_result_entry(
         "has_text": result["has_text"],
         "unmet_categories": unmet_categories,
         "missing_required": missing_required,
+        # note_results留全部（不套隱藏設定）：CSV匯出、前端算「備註規則未符合」文字說明都要看完整
+        # 清單，不然規則其實違反了，畫面卻因為那個kind被設定隱藏而完全看不到原因、CSV也查不到。
+        # note_sections（結果頁面顯示用）才套用隱藏設定，單純是畫面上少列幾行、不影響資料完整性。
         "note_results": note_results,
-        "note_sections": _group_note_results_by_category(note_results),
+        "note_sections": _group_note_results_by_category(visible_note_results),
     }
 
 
@@ -804,8 +766,9 @@ def _normalize_course(index: int, c: dict) -> dict:
 
 _NOTE_RULE_KIND_LABELS = {
     "info": "純提醒",
-    "prerequisite": "先修規定",
-    "elective_source": "選修學分來源",
+    "elective_source": "選修學分來源（須屬於）",
+    "elective_exclusion": "選修學分來源（不可屬於）",
+    "credit_threshold": "學分門檻（不限選修）",
 }
 
 # 應修科目表原始PDF的備註段落順序，給「類別」欄位自動完成建議用，管理者也可以自己輸入別的分類
@@ -813,11 +776,7 @@ _NOTE_RULE_CATEGORY_SUGGESTIONS = ["一、共同必修", "二、院、系訂必�
 
 
 def _parse_code_list(s: str) -> list:
-    """把表單裡逗號分隔的課號/課名字串拆成list，順便去重（保留第一次出現的順序）。
-    去重是必要的：像 require_codes 這種欄位如果不小心重複打了同一個課號兩次，
-    _check_prerequisite() 算「通過幾門」時會把同一門通過的課算兩次，可能讓明明沒達到
-    門檻的情況被誤判成已達標。
-    """
+    """把表單裡逗號分隔的課號/課名字串拆成list，順便去重（保留第一次出現的順序）。"""
     seen = set()
     result = []
     for c in (s or "").split(","):
@@ -837,15 +796,15 @@ def _normalize_note_rule(index: int, r: dict) -> dict:
         "kind_label": _NOTE_RULE_KIND_LABELS.get(kind, kind),
         "category": r.get("category", ""),
         "text": r.get("text", ""),
-        "trigger_codes": ", ".join(r.get("trigger_codes") or []),
-        "require_codes": ", ".join(r.get("require_codes") or []),
-        "require_count": r.get("require_count", 1),
-        "codes": ", ".join(r.get("codes") or []),
         "min_source_credits": r.get("min_source_credits", 0),
         "source_code_prefixes": ", ".join(r.get("source_code_prefixes") or []),
         "source_extra_codes": ", ".join(r.get("source_extra_codes") or []),
         "min_exclude_credits": r.get("min_exclude_credits", 0),
         "exclude_code_prefixes": ", ".join(r.get("exclude_code_prefixes") or []),
+        "min_credits": r.get("min_credits", 0),
+        "code_prefixes": ", ".join(r.get("code_prefixes") or []),
+        "extra_codes": ", ".join(r.get("extra_codes") or []),
+        "hidden": bool(r.get("hidden")),
     }
 
 
@@ -871,33 +830,27 @@ def _build_note_rule(
     kind: str,
     category: str,
     text: str,
-    trigger_codes: str,
-    require_codes: str,
-    require_count: int,
-    codes: str,
     min_source_credits: float,
     source_code_prefixes: str,
     source_extra_codes: str,
     min_exclude_credits: float,
     exclude_code_prefixes: str,
+    min_credits: float = 0,
+    code_prefixes: str = "",
+    extra_codes: str = "",
 ) -> dict:
     rule = {"kind": kind, "category": category.strip(), "text": text}
-    if kind == "prerequisite":
-        # 「依序課號」欄位有填就是順序修習形狀，沒填才是觸發→條件形狀——同一條規則只會用到一種，
-        # 不用把另一種形狀的空欄位也存進 rules.yaml。
-        codes_list = _parse_code_list(codes)
-        if codes_list:
-            rule["codes"] = codes_list
-        else:
-            rule["trigger_codes"] = _parse_code_list(trigger_codes)
-            rule["require_codes"] = _parse_code_list(require_codes)
-            rule["require_count"] = require_count or len(rule["require_codes"]) or 1
-    elif kind == "elective_source":
+    if kind == "elective_source":
         rule["min_source_credits"] = min_source_credits or 0
         rule["source_code_prefixes"] = _parse_code_list(source_code_prefixes)
         rule["source_extra_codes"] = _parse_code_list(source_extra_codes)
+    elif kind == "elective_exclusion":
         rule["min_exclude_credits"] = min_exclude_credits or 0
         rule["exclude_code_prefixes"] = _parse_code_list(exclude_code_prefixes)
+    elif kind == "credit_threshold":
+        rule["min_credits"] = min_credits or 0
+        rule["code_prefixes"] = _parse_code_list(code_prefixes)
+        rule["extra_codes"] = _parse_code_list(extra_codes)
     return rule
 
 
@@ -1240,23 +1193,23 @@ async def admin_note_rule_add(
     kind: str = Form("info"),
     category: str = Form(""),
     text: str = Form(...),
-    trigger_codes: str = Form(""),
-    require_codes: str = Form(""),
-    require_count: int = Form(0),
-    codes: str = Form(""),
     min_source_credits: float = Form(0),
     source_code_prefixes: str = Form(""),
     source_extra_codes: str = Form(""),
     min_exclude_credits: float = Form(0),
     exclude_code_prefixes: str = Form(""),
+    min_credits: float = Form(0),
+    code_prefixes: str = Form(""),
+    extra_codes: str = Form(""),
 ):
     rules = load_rules()
     year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
     year_data.setdefault("note_rules", []).append(
         _build_note_rule(
-            kind, category, text, trigger_codes, require_codes, require_count, codes,
+            kind, category, text,
             min_source_credits, source_code_prefixes, source_extra_codes,
             min_exclude_credits, exclude_code_prefixes,
+            min_credits, code_prefixes, extra_codes,
         )
     )
     save_rules(rules)
@@ -1270,24 +1223,29 @@ async def admin_note_rule_update(
     kind: str = Form("info"),
     category: str = Form(""),
     text: str = Form(...),
-    trigger_codes: str = Form(""),
-    require_codes: str = Form(""),
-    require_count: int = Form(0),
-    codes: str = Form(""),
     min_source_credits: float = Form(0),
     source_code_prefixes: str = Form(""),
     source_extra_codes: str = Form(""),
     min_exclude_credits: float = Form(0),
     exclude_code_prefixes: str = Form(""),
+    min_credits: float = Form(0),
+    code_prefixes: str = Form(""),
+    extra_codes: str = Form(""),
 ):
     rules = load_rules()
     note_rules = rules.get(year, {}).get("note_rules", [])
     if 0 <= index < len(note_rules):
+        # 編輯表單完全沒有「隱藏」欄位，_build_note_rule也不知道這件事——用編輯表單存檔時
+        # 是整條規則重建，要手動把舊的hidden值接回去，不然編輯一次就會把隱藏設定洗掉。
+        was_hidden = note_rules[index].get("hidden", False)
         note_rules[index] = _build_note_rule(
-            kind, category, text, trigger_codes, require_codes, require_count, codes,
+            kind, category, text,
             min_source_credits, source_code_prefixes, source_extra_codes,
             min_exclude_credits, exclude_code_prefixes,
+            min_credits, code_prefixes, extra_codes,
         )
+        if was_hidden:
+            note_rules[index]["hidden"] = True
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}&tab=notes#note-row-{index}", status_code=303)
 
@@ -1300,6 +1258,18 @@ async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...)):
         note_rules.pop(index)
     save_rules(rules)
     return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
+
+
+@app.post("/admin/note_rule/toggle_hidden")
+async def admin_note_rule_toggle_hidden(year: str = Form(...), index: int = Form(...)):
+    """單筆備註規則自己的隱藏開關，只影響結果頁顯示，不影響畢業資格判定，
+    詳見evaluate_note_rules/_build_result_entry的說明。"""
+    rules = load_rules()
+    note_rules = rules.get(year, {}).get("note_rules", [])
+    if 0 <= index < len(note_rules):
+        note_rules[index]["hidden"] = not note_rules[index].get("hidden", False)
+    save_rules(rules)
+    return RedirectResponse(f"/admin?year={year}&tab=notes#note-row-{index}", status_code=303)
 
 
 @app.get("/admin/rules/export")
