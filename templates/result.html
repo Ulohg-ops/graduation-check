@@ -156,6 +156,11 @@
             必修學分 {{ r.required_credit_total }} / {{ r.required_credits }}
           </span>
           {% endif %}
+          {% if r.core_required_credits %}
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.core_required_credit_ok else 'border-gray-200 text-gray-700' }}">
+            核心必修學分 {{ r.core_required_credit_total }} / {{ r.core_required_credits }}
+          </span>
+          {% endif %}
           {% if r.elective_credits %}
           <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.elective_credit_ok else 'border-gray-200 text-gray-700' }}">
             選修學分 {{ r.elective_credit_total }} / {{ r.elective_credits }}
@@ -167,6 +172,7 @@
         <div class="flex flex-wrap gap-1.5 mt-2">
           {% if not r.credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">學分不足</span>{% endif %}
           {% if r.required_credits and not r.required_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">必修學分不足</span>{% endif %}
+          {% if r.core_required_credits and not r.core_required_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">核心必修學分不足</span>{% endif %}
           {% if r.elective_credits and not r.elective_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">選修學分不足</span>{% endif %}
           {% if r.missing_required %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">仍有必修科目未通過</span>{% endif %}
           {% if r.note_results | selectattr('status', 'equalto', 'fail') | list %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">備註規則未符合</span>{% endif %}
@@ -215,21 +221,11 @@
                   {{ n.text }}
                   {% if n.detail %}<span class="text-xs text-gray-400">（{{ n.detail }}）</span>{% endif %}
                 </div>
-                {% if n.source_courses %}
+                {% if n.matched_courses %}
                 <div class="mt-1.5 pl-3 border-l-2 border-gray-100">
-                  <p class="text-xs text-gray-500">符合來源條件的課程（{{ n.source_courses | length }} 科目）</p>
+                  <p class="text-xs text-gray-500">{{ n.match_label }}（{{ n.matched_courses | length }} 科目）</p>
                   <ul class="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
-                    {% for c in n.source_courses %}
-                    <li>{{ c.code }}　{{ c.name }}（{{ c.credit }} 學分）</li>
-                    {% endfor %}
-                  </ul>
-                </div>
-                {% endif %}
-                {% if n.exclude_courses %}
-                <div class="mt-1.5 pl-3 border-l-2 border-gray-100">
-                  <p class="text-xs text-gray-500">符合排除來源條件的課程（{{ n.exclude_courses | length }} 科目）</p>
-                  <ul class="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
-                    {% for c in n.exclude_courses %}
+                    {% for c in n.matched_courses %}
                     <li>{{ c.code }}　{{ c.name }}（{{ c.credit }} 學分）</li>
                     {% endfor %}
                   </ul>
@@ -356,6 +352,7 @@
       const reasons = [];
       if (!r.credit_ok) reasons.push('學分不足');
       if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
+      if (r.core_required_credits && !r.core_required_credit_ok) reasons.push('核心必修學分不足');
       if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
       if (r.missing_required.length) reasons.push('仍有必修科目未通過');
       if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
