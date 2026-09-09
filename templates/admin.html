@@ -85,6 +85,15 @@
           </form>
         </div>
         <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-500">核心必修學分門檻（選填）：</span>
+          <form method="post" action="/admin/core_required_credits" class="flex items-center gap-2">
+            <input type="hidden" name="year" value="{{ year }}" />
+            <input type="number" step="1" name="core_required_credits" value="{{ core_required_credits }}"
+                   class="border rounded-md p-1 text-sm w-20" />
+            <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
+          </form>
+        </div>
+        <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500">選修學分門檻（選填）：</span>
           <form method="post" action="/admin/elective_credits" class="flex items-center gap-2">
             <input type="hidden" name="year" value="{{ year }}" />
@@ -95,8 +104,10 @@
         </div>
       </div>
       <p class="text-xs text-gray-400 -mt-2 mb-4">
-        必修/選修學分門檻留空或填0代表不檢查這個子項，只看畢業總學分門檻。選修學分的來源限制
-        （例如「至少6學分要CH課號」）在下面「備註規則設定」分頁籤設定。
+        必修/核心必修/選修學分門檻留空或填0代表不檢查這個子項，只看畢業總學分門檻。核心必修學分
+        算的是「分組」（下面科目列表裡標成🔖的核心必選修A/B組、專題必選修這種M選N科目）裡實際
+        被選中那幾門課的學分加總。選修學分的來源限制（例如「至少6學分要CH課號」）在下面
+        「備註規則設定」分頁籤設定。
       </p>
 
       <details class="mb-4 border border-gray-200 rounded-md">
@@ -389,10 +400,15 @@
         </summary>
         <div class="mt-2 space-y-1">
           <p><b>純提醒</b>：只顯示文字，不判斷完成與否，例如「依本校雙主修辦法辦理」。</p>
-          <p><b>選修學分來源（須屬於）</b>：成績單裡「已通過但不在必修清單」的課（選修學分池）當中，特定課號前綴/名單的部分要達標（例如「選修16學分中至少6學分要CH課號」）。</p>
-          <p><b>選修學分來源（不可屬於）</b>：同樣限定在選修學分池範圍內，但反過來——「不是」特定課號前綴的部分要達標（例如「至少3學分要外系課程」）。跟「須屬於」是獨立的兩條規則，同一段備註如果兩種條件都有，就開兩條、類別填一樣的名稱即可。</p>
-          <p><b>學分門檻（不限選修）</b>：不管課有沒有被算進必修學分池，直接對整份成績單算符合條件的學分加總，只要達標即可（例如「通識核心三大領域至少須修習一個領域」）。</p>
-          <p>每筆規則下面只要填該類型用得到的欄位即可，其他留空沒關係；「類別」是給檢核結果頁分段顯示用的（照PDF原本的一/二/三段落分），同一類別打一樣的名稱即可。</p>
+          <p><b>學分條件</b>：由「範圍」跟「方向」兩個獨立選項組成，四種組合對應四種常見備註形狀：</p>
+          <ul class="list-disc list-inside pl-2 space-y-0.5">
+            <li>選修學分 + 須屬於：例如「選修16學分中至少6學分要CH課號」</li>
+            <li>選修學分 + 不可屬於：例如「至少3學分要外系課程（不是CH課號）」</li>
+            <li>不限選修 + 須屬於：例如「通識核心三大領域至少須修習一個領域」</li>
+            <li>不限選修 + 不可屬於：例如「整份成績單至少3學分不能是本系課程」</li>
+          </ul>
+          <p>「選修學分」範圍是限定在成績單裡「已通過但不在必修清單」的課（選修學分池）當中算；「不限選修」範圍是不管課有沒有被算進必修學分池，直接對整份成績單算。同一段備註如果同時有「須屬於」跟「不可屬於」兩種條件，就開兩條規則、類別填一樣的名稱，結果頁會自動歸在同一段落顯示。</p>
+          <p>「類別」是給檢核結果頁分段顯示用的（照PDF原本的一/二/三段落分），同一類別打一樣的名稱即可。</p>
         </div>
       </details>
 
@@ -421,43 +437,34 @@
               <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_source">
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
             <div>
-              <label class="block text-xs text-gray-500">選修學分須屬於：至少</label>
-              <input type="number" step="0.5" name="min_source_credits" value="{{ r.min_source_credits }}"
-                     class="border rounded-md p-1 text-sm w-24" />
+              <label class="block text-xs text-gray-500">範圍</label>
+              <select name="scope" class="border rounded-md p-1 text-sm">
+                {% for k, label in credit_condition_scopes.items() %}
+                <option value="{{ k }}" {% if k == r.scope %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div>
-              <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
-              <input type="text" name="source_code_prefixes" value="{{ r.source_code_prefixes }}" placeholder="例如 CH"
-                     class="border rounded-md p-1 text-sm w-28" />
-            </div>
-            {{ course_input('source_extra_codes', 'edit-' ~ r.index ~ '-source_extra_codes', r.source_extra_codes, '額外課號或課名名單（逗號分隔，課號課名都可混著填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
-          </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_exclusion">
-            <div>
-              <label class="block text-xs text-gray-500">選修學分不可屬於：至少</label>
-              <input type="number" step="0.5" name="min_exclude_credits" value="{{ r.min_exclude_credits }}"
-                     class="border rounded-md p-1 text-sm w-24" />
+              <label class="block text-xs text-gray-500">方向</label>
+              <select name="direction" class="border rounded-md p-1 text-sm w-24">
+                {% for k, label in credit_condition_directions.items() %}
+                <option value="{{ k }}" {% if k == r.direction %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div>
-              <label class="block text-xs text-gray-500">排除課號前綴（逗號分隔，例如CH代表排除本系課）</label>
-              <input type="text" name="exclude_code_prefixes" value="{{ r.exclude_code_prefixes }}" placeholder="例如 CH"
-                     class="border rounded-md p-1 text-sm w-28" />
-            </div>
-          </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_threshold">
-            <div>
-              <label class="block text-xs text-gray-500">學分門檻：至少</label>
+              <label class="block text-xs text-gray-500">至少</label>
               <input type="number" step="0.5" name="min_credits" value="{{ r.min_credits }}"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
             <div>
-              <label class="block text-xs text-gray-500">課號前綴（逗號分隔，符合任一即算，不限選修）</label>
-              <input type="text" name="code_prefixes" value="{{ r.code_prefixes }}" placeholder="例如 CC01, CC02, CC04"
-                     class="border rounded-md p-1 text-sm w-56" />
+              <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
+              <input type="text" name="code_prefixes" value="{{ r.code_prefixes }}" placeholder="例如 CH"
+                     class="border rounded-md p-1 text-sm w-40" />
             </div>
-            {{ course_input('extra_codes', 'edit-' ~ r.index ~ '-extra_codes', r.extra_codes, '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010', 'w-64') }}
+            {{ course_input('extra_codes', 'edit-' ~ r.index ~ '-extra_codes', r.extra_codes, '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
           </div>
           <div class="flex items-center gap-3">
             <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
@@ -465,30 +472,21 @@
           </div>
         </form>
         {% else %}
-        <div class="flex justify-between items-start gap-3 {{ 'opacity-50' if r.hidden else '' }}">
+        <div class="flex justify-between items-start gap-3">
           <div>
             <span class="inline-block text-xs bg-purple-100 text-purple-700 rounded px-1.5 py-0.5 mr-2">{{ r.kind_label }}</span>
             {% if r.category %}
             <span class="inline-block text-xs bg-gray-200 text-gray-600 rounded px-1.5 py-0.5 mr-2">{{ r.category }}</span>
             {% endif %}
-            {% if r.hidden %}
-            <span class="inline-block text-xs bg-yellow-100 text-yellow-700 rounded px-1.5 py-0.5 mr-2">結果頁已隱藏</span>
-            {% endif %}
             <span class="text-sm text-gray-800">{{ r.text }}</span>
-            {% if r.kind == 'elective_source' %}
-            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號前綴「{{ r.source_code_prefixes }}」或名單「{{ r.source_extra_codes }}」的部分需 ≥ {{ r.min_source_credits }}（必修/選修學分門檻在「科目管理」分頁設定）</p>
-            {% elif r.kind == 'elective_exclusion' %}
-            <p class="text-xs text-gray-500 mt-1">選修學分裡，課號「不是」前綴「{{ r.exclude_code_prefixes }}」的部分需 ≥ {{ r.min_exclude_credits }}</p>
-            {% elif r.kind == 'credit_threshold' %}
-            <p class="text-xs text-gray-500 mt-1">整份成績單裡，課號前綴「{{ r.code_prefixes }}」{% if r.extra_codes %}或名單「{{ r.extra_codes }}」{% endif %}的學分加總需 ≥ {{ r.min_credits }}（不限已被算進必修或選修）</p>
+            {% if r.kind == 'credit_condition' %}
+            <p class="text-xs text-gray-500 mt-1">
+              {{ '選修學分' if r.scope == 'elective' else '整份成績單' }}裡，課號{% if r.direction == 'exclude' %}「不是」{% endif %}前綴「{{ r.code_prefixes }}」{% if r.extra_codes %}或名單「{{ r.extra_codes }}」{% endif %}的部分需 ≥ {{ r.min_credits }}
+              {%- if r.scope == 'all' %}（不限已被算進必修或選修）{% endif %}
+            </p>
             {% endif %}
           </div>
           <div class="flex items-center gap-3 whitespace-nowrap">
-            <form method="post" action="/admin/note_rule/toggle_hidden" class="inline">
-              <input type="hidden" name="year" value="{{ year }}" />
-              <input type="hidden" name="index" value="{{ r.index }}" />
-              <button type="submit" class="text-sm text-gray-500 hover:underline">{{ '顯示' if r.hidden else '隱藏' }}</button>
-            </form>
             <a href="/admin?year={{ year }}&tab=notes&edit_note={{ r.index }}#note-row-{{ r.index }}" class="text-sm text-blue-600 hover:underline">編輯</a>
             <form method="post" action="/admin/note_rule/delete" class="inline"
                   onsubmit="return confirm('刪除這條備註規則？')">
@@ -534,43 +532,34 @@
               <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_source">
+          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
             <div>
-              <label class="block text-xs text-gray-500">選修學分須屬於：至少</label>
-              <input type="number" step="0.5" name="min_source_credits"
-                     class="border rounded-md p-1 text-sm w-24" />
+              <label class="block text-xs text-gray-500">範圍</label>
+              <select name="scope" class="border rounded-md p-1 text-sm">
+                {% for k, label in credit_condition_scopes.items() %}
+                <option value="{{ k }}">{{ label }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div>
-              <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
-              <input type="text" name="source_code_prefixes" placeholder="例如 CH"
-                     class="border rounded-md p-1 text-sm w-28" />
-            </div>
-            {{ course_input('source_extra_codes', 'add-source_extra_codes', '', '額外課號或課名名單（逗號分隔，課號課名都可混著填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
-          </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="elective_exclusion">
-            <div>
-              <label class="block text-xs text-gray-500">選修學分不可屬於：至少</label>
-              <input type="number" step="0.5" name="min_exclude_credits"
-                     class="border rounded-md p-1 text-sm w-24" />
+              <label class="block text-xs text-gray-500">方向</label>
+              <select name="direction" class="border rounded-md p-1 text-sm w-24">
+                {% for k, label in credit_condition_directions.items() %}
+                <option value="{{ k }}">{{ label }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div>
-              <label class="block text-xs text-gray-500">排除課號前綴（逗號分隔，例如CH代表排除本系課）</label>
-              <input type="text" name="exclude_code_prefixes" placeholder="例如 CH"
-                     class="border rounded-md p-1 text-sm w-28" />
-            </div>
-          </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_threshold">
-            <div>
-              <label class="block text-xs text-gray-500">學分門檻：至少</label>
+              <label class="block text-xs text-gray-500">至少</label>
               <input type="number" step="0.5" name="min_credits"
                      class="border rounded-md p-1 text-sm w-24" />
             </div>
             <div>
-              <label class="block text-xs text-gray-500">課號前綴（逗號分隔，符合任一即算，不限選修）</label>
-              <input type="text" name="code_prefixes" placeholder="例如 CC01, CC02, CC04"
+              <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
+              <input type="text" name="code_prefixes" placeholder="例如 CH 或 CC01, CC02, CC04"
                      class="border rounded-md p-1 text-sm w-56" />
             </div>
-            {{ course_input('extra_codes', 'add-extra_codes', '', '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010', 'w-64') }}
+            {{ course_input('extra_codes', 'add-extra_codes', '', '額外課號或課名名單（逗號分隔，選填）', '例如 EG3010, 淨零碳排導論', 'w-64') }}
           </div>
           <button type="submit"
                   class="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-purple-700 whitespace-nowrap">

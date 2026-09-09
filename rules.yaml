@@ -1,5 +1,5 @@
 '113':
-  total_credits: 128
+  total_credits: 128.0
   required_courses:
   - name: 國文
     code: ''
@@ -264,26 +264,22 @@
     group: 專題必選修
     tier: 系訂必修
     note: ''
-  group_requirements: {}
+  group_requirements:
+    核心必選修A組: 1
   note_rules:
-  - kind: credit_threshold
-    category: 一、共同必修
-    text: 通識核心必修改為人文與思想、自然科學、社會思潮與現象三大領域中至少須修習一個領域。
-    min_credits: 1.0
-    code_prefixes:
-    - CC01
-    - CC02
-    - CC04
-    extra_codes: []
-  - kind: elective_source
+  - kind: credit_condition
     category: 二、院、系訂必修
-    text: 必修科目計112學分，選修科目學分計16學分，選修學分中至少需選修本系(課號CH)開授選修課程或工學院執行教育部新工程教育方法實驗與建構計畫「C類、學院主題式課群建構計畫」所涵蓋之非屬本系必修及必選修之相關課程6學分，最低畢業學分：128學分。
-    min_source_credits: 6.0
-    source_code_prefixes:
+    text: 選修學分至少6學分須屬於本系(CH)課程，或工學院「C類、學院主題式課群建構計畫」課程(EG3004)。
+    scope: elective
+    direction: include
+    min_credits: 6.0
+    code_prefixes:
     - CH
-    source_extra_codes: []
+    extra_codes:
+    - EG3004
   required_credits: 112.0
   elective_credits: 16.0
+  core_required_credits: 0.0
 '112':
   total_credits: 128
   required_courses:
@@ -552,24 +548,19 @@
     note: ''
   group_requirements: {}
   note_rules:
-  - kind: credit_threshold
-    category: 一、共同必修
-    text: 通識核心必修改為人文與思想、自然科學、社會思潮與現象三大領域中至少須修習一個領域。
-    min_credits: 1.0
-    code_prefixes:
-    - CC01
-    - CC02
-    - CC04
-    extra_codes: []
-  - kind: elective_source
+  - kind: credit_condition
     category: 二、院、系訂必修
-    text: 必修科目計112學分，選修科目學分計16學分，選修學分中至少需選修本系(課號CH)開授選修課程或工學院執行教育部新工程教育方法實驗與建構計畫「C類、學院主題式課群建構計畫」所涵蓋之非屬本系必修及必選修之相關課程6學分，最低畢業學分：128學分。
-    min_source_credits: 6
-    source_code_prefixes:
+    text: 選修學分至少6學分須屬於本系(CH)課程，或工學院「C類、學院主題式課群建構計畫」課程(EG3004)。
+    scope: elective
+    direction: include
+    min_credits: 6
+    code_prefixes:
     - CH
-    source_extra_codes: []
+    extra_codes:
+    - EG3004
   required_credits: 112
   elective_credits: 16
+  core_required_credits: 0.0
 '111':
   total_credits: 128
   required_courses:
@@ -838,22 +829,16 @@
     note: ''
   group_requirements: {}
   note_rules:
-  - kind: credit_threshold
-    category: 一、共同必修
-    text: 通識核心必修改為人文與思想、自然科學、社會思潮與現象三大領域中至少須修習一個領域。
-    min_credits: 1.0
-    code_prefixes:
-    - CC01
-    - CC02
-    - CC04
-    extra_codes: []
-  - kind: elective_source
+  - kind: credit_condition
     category: 二、院、系訂必修
-    text: 必修科目計112學分，選修科目學分計16學分，選修學分中至少需選修本系(課號CH)開授選修課程或工學院執行教育部新工程教育方法實驗與建構計畫「C類、學院主題式課群建構計畫」所涵蓋之非屬本系必修及必選修之相關課程6學分，最低畢業學分：128學分。
-    min_source_credits: 6
-    source_code_prefixes:
+    text: 選修學分至少6學分須屬於本系(CH)課程，或工學院「C類、學院主題式課群建構計畫」課程(EG3004)。
+    scope: elective
+    direction: include
+    min_credits: 6
+    code_prefixes:
     - CH
-    source_extra_codes: []
+    extra_codes:
+    - EG3004
   required_credits: 112
   elective_credits: 16
 '110':
@@ -1129,23 +1114,16 @@
   group_requirements:
     專題必選修: 1
   note_rules:
-  - kind: credit_threshold
-    category: 一、共同必修
-    text: 通識核心必修改為人文與思想、自然科學、社會思潮與現象三大領域中至少須修習一個領域。
-    min_credits: 1.0
-    code_prefixes:
-    - CC01
-    - CC02
-    - CC04
-    extra_codes: []
-  - kind: elective_source
+  - kind: credit_condition
     category: 二、院、系訂必修
-    text: 必修科目計112學分，選修科目學分計16學分，選修學分中至少需選修本系(課號CH)開授選修課程或工學院執行教育部新工程教育方法實驗與建構計畫「C類、學院主題式課群建構計畫」所涵蓋之非屬本系必修及必選修之相關課程6學分，最低畢業學分：128學分。
-    min_source_credits: 6.0
-    source_code_prefixes:
+    text: 選修學分至少6學分須屬於本系(CH)課程，或工學院「C類、學院主題式課群建構計畫」課程(EG3004)。
+    scope: elective
+    direction: include
+    min_credits: 6.0
+    code_prefixes:
     - CH
-    source_extra_codes:
-    - CH2313
+    extra_codes:
+    - EG3004
   required_credits: 112
   elective_credits: 16.0
 '115':
@@ -1424,36 +1402,40 @@
   group_requirements:
     專題必選修: 1
   note_rules:
-  - kind: credit_threshold
-    category: "ä¸\x80ã\x80\x81å\N±å\x90\x8Cå¿\Nä¿®"
-    text: "é\x80\x9Aè­\x98æ ¸å¿\x83å¿\Nä¿®æ\x94¹ç\x82ºäººæ\x96\x87è\x88\x87æ\x80\x9D\
-      æ\x83³ã\x80\x81è\x87ªç\x84¶ç§\x91å­¸ã\x80\x81ç¤¾æ\x9C\x83æ\x80\x9Dæ½®è\x88\x87\
-      ç\x8F¾è±¡ä¸\x89å¤§é \x98å\x9F\x9Fä¸­è\x87³å°\x91é \x88ä¿®ç¿\x92ä¸\x80å\x80\x8B\
-      é \x98å\x9F\x9Fã\x80\x82"
+  - kind: credit_condition
+    category: 一、共同必修
+    text: 通識核心必修改為人文與思想、自然科學、社會思潮與現象三大領域中至少須修習一個領域。
+    scope: all
+    direction: include
     min_credits: 1.0
     code_prefixes:
     - CC01
     - CC02
     - CC04
     extra_codes: []
-  - kind: elective_source
+  - kind: credit_condition
     category: 二、院、系訂必修
-    text: 必修科目計112學分，選修科目學分計16學分，選修學分中至少需選修本系(課號CH)開授選修課程或工學院執行教育部新工程教育方法實驗與建構計畫「C類、學院主題式課群建構計畫」所涵蓋之非屬本系必修及必選修之相關課程6學分，最低畢業學分：128學分。
-    min_source_credits: 6.0
-    source_code_prefixes:
+    text: 選修學分至少6學分須屬於本系(CH)課程，或工學院「C類、學院主題式課群建構計畫」課程(EG3004)。
+    scope: elective
+    direction: include
+    min_credits: 6.0
+    code_prefixes:
     - CH
-    source_extra_codes:
-    - CH2313
-  - kind: elective_exclusion
+    extra_codes:
+    - EG3004
+  - kind: credit_condition
     category: 二、院、系訂必修
     text: 須修習選修並通過外系課程3學分，不含通識中心、語言中心及體育室課程。
-    min_exclude_credits: 3.0
-    exclude_code_prefixes:
+    scope: elective
+    direction: exclude
+    min_credits: 3.0
+    code_prefixes:
     - CH
     - CL
     - GS
     - CC
     - LN
     - PE
+    extra_codes: []
   required_credits: 112
   elective_credits: 16.0
