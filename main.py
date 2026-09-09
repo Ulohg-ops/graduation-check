@@ -1,7 +1,6 @@
 import copy
 import io
 import re
-from itertools import groupby
 from pathlib import Path
 from typing import List, Optional
 
@@ -957,9 +956,16 @@ def _admin_context(
 
     # 畫面分區的依據：優先用「分組」（N選M功能性分組），沒有分組才退而用「層級」（純顯示分類），
     # 兩者都沒有的科目不分區、直接顯示
+    # 用一般字典依key收集（不用itertools.groupby），因為groupby只會合併「清單中緊鄰」的
+    # 相同key項目——新增科目是直接append到清單最後面，如果用groupby，同分組的科目只要不是
+    # 緊接在一起，就會被拆成兩個同名區塊，畫面上看起來像新科目沒被放進分組裡。
+    sections_by_key: dict = {}
+    for c in required_courses:
+        key = c["group"] or c["tier"]
+        sections_by_key.setdefault(key, []).append(c)
+
     course_sections = []
-    for key, items in groupby(required_courses, key=lambda c: c["group"] or c["tier"]):
-        items_list = list(items)
+    for key, items_list in sections_by_key.items():
         is_group = bool(items_list[0]["group"])
         course_sections.append(
             {
