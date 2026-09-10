@@ -50,6 +50,8 @@
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == 'settings' else 'text-gray-500' }}">分組與學年度設定</button>
         <button type="button" data-tab-btn="notes"
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == 'notes' else 'text-gray-500' }}">備註規則設定</button>
+        <button type="button" data-tab-btn="minor"
+                class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == 'minor' else 'text-gray-500' }}">輔系</button>
       </nav>
       <form method="get" action="/admin" class="flex items-center gap-2">
         <input type="hidden" name="tab" id="year-switch-tab" value="{{ active_tab }}" />
@@ -569,10 +571,343 @@
       </details>
     </div>
 
+    <!-- ============ 分頁籤四：輔系 ============ -->
+    <div data-tab-panel="minor" {% if active_tab != 'minor' %}hidden{% endif %}>
+      <p class="text-xs text-gray-500 mb-4">
+        輔系是跟主系完全獨立的一套規則（自己的必修科目、分組、備註規則），檢核邏輯一樣，
+        差別只在這裡設定的科目不會影響主系學生的判定——使用者上傳成績單時要自己勾選
+        「也檢查輔系」，結果頁才會多顯示一區獨立的輔系資格判定。
+      </p>
+
+      <details class="mb-4 border border-gray-200 rounded-md">
+        <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium text-blue-600 hover:bg-gray-50">
+          + 新增科目
+        </summary>
+        <form method="post" action="/admin/course/add" class="flex items-end gap-2 flex-wrap p-3 bg-gray-50 rounded-b-md">
+          <input type="hidden" name="year" value="{{ year }}" />
+          <input type="hidden" name="target" value="minor" />
+          <div>
+            <label class="block text-xs text-gray-500">課程名稱</label>
+            <input type="text" name="name" required class="border rounded-md p-1 text-sm w-32" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500">課號</label>
+            <input type="text" name="code" placeholder="例如 CH1023"
+                   class="border rounded-md p-1 text-sm w-40" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500">學分</label>
+            <input type="number" step="0.5" name="credits" required class="border rounded-md p-1 text-sm w-16" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500">分組（選填，N選1時用，例如三選一）</label>
+            <input type="text" name="group" list="minor-group-options" placeholder="例如：三選一"
+                   class="border rounded-md p-1 text-sm w-36" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500">備註（選填）</label>
+            <input type="text" name="note" class="border rounded-md p-1 text-sm w-40" />
+          </div>
+          <button type="submit"
+                  class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
+            + 新增科目
+          </button>
+        </form>
+      </details>
+      <datalist id="minor-group-options">
+        {% for g in minor_group_options %}
+        <option value="{{ g }}"></option>
+        {% endfor %}
+      </datalist>
+
+      <table class="w-full text-sm border-collapse table-fixed mb-8">
+        <thead>
+          <tr class="border-b text-left">
+            <th class="py-1 pr-2">課程名稱</th>
+            <th class="py-1 pr-2 w-32">課號</th>
+            <th class="py-1 pr-2 w-16">學分</th>
+            <th class="py-1 pr-2">備註</th>
+            <th class="py-1 pr-2 text-right w-24">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for section in minor_course_sections %}
+          {% if section.key %}
+          <tr class="{{ 'bg-purple-50' if section.is_group else 'bg-gray-100' }}">
+            <td colspan="{{ table_colspan }}" class="py-1 px-2">
+              {% if section.is_group %}
+              <span class="text-xs font-medium text-purple-700 whitespace-nowrap">
+                🔖 {{ section.key }}（共{{ section.courses|length }}科，需選滿{{ section.required_count }}門）
+              </span>
+              {% else %}
+              <span class="text-xs font-medium text-gray-600 whitespace-nowrap">
+                🏷️ {{ section.key }}（共{{ section.courses|length }}科，每科都需個別修過）
+              </span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %}
+          {% for c in section.courses %}
+          <tr class="border-b" id="minor-row-{{ c.index }}">
+            {% if c.index == edit_minor_index %}
+            <td colspan="{{ table_colspan }}" class="py-2">
+              <form method="post" action="/admin/course/update" class="flex items-center gap-2 flex-wrap">
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="index" value="{{ c.index }}" />
+                <input type="hidden" name="target" value="minor" />
+                <input type="text" name="name" value="{{ c.name }}" required
+                       class="border rounded-md p-1 text-sm flex-1 min-w-[8rem]" />
+                <input type="text" name="code" value="{{ c.code }}" placeholder="課號"
+                       class="border rounded-md p-1 text-sm w-28" />
+                <input type="number" step="0.5" name="credits" value="{{ c.credits }}" required
+                       class="border rounded-md p-1 text-sm w-16" />
+                <input type="text" name="group" value="{{ c.group }}" list="minor-group-options" placeholder="分組（選填）"
+                       class="border rounded-md p-1 text-sm w-36" />
+                <input type="text" name="note" value="{{ c.note }}" placeholder="備註（選填）"
+                       class="border rounded-md p-1 text-sm w-40" />
+                <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
+                <a href="/admin?year={{ year }}&tab=minor#minor-row-{{ c.index }}" class="text-sm text-gray-500 hover:underline">取消</a>
+              </form>
+            </td>
+            {% else %}
+            <td class="py-1 pr-2">{{ c.name }}</td>
+            <td class="py-1 pr-2 text-gray-500 break-all">{{ c.code }}</td>
+            <td class="py-1 pr-2">{{ c.credits }}</td>
+            <td class="py-1 pr-2 text-gray-500">{{ c.note }}</td>
+            <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
+              <a href="/admin?year={{ year }}&tab=minor&edit_minor={{ c.index }}#minor-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
+              <form method="post" action="/admin/course/delete" class="inline">
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="index" value="{{ c.index }}" />
+                <input type="hidden" name="target" value="minor" />
+                <button type="submit" class="text-red-600 hover:underline">刪除</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="{{ table_colspan }}" class="py-4 text-center text-gray-400">尚未設定任何輔系必修科目</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="mb-8">
+        <p class="text-xs font-medium text-gray-500 mb-2">
+          分組——設定「這幾科要選滿幾門才算過」（例如三選一）。同一組的每一科「分組」欄位要填完全一樣的名稱。
+        </p>
+        {% if minor_group_requirements %}
+        <div class="flex flex-wrap gap-3 mb-2">
+          {% for g in minor_group_requirements %}
+          <form method="post" action="/admin/group/set_requirement"
+                class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1 flex-wrap"
+                onsubmit="return !event.submitter || event.submitter.name !== 'delete' || confirm('刪除分組「{{ g.group }}」？底下的科目不會被刪除，只會變回沒有分組的一般科目。')">
+            <input type="hidden" name="year" value="{{ year }}" />
+            <input type="hidden" name="group" value="{{ g.group }}" />
+            <input type="hidden" name="old_group" value="{{ g.group }}" />
+            <input type="hidden" name="target" value="minor" />
+            <span class="text-xs text-purple-700 whitespace-nowrap">{{ g.group }}</span>
+            <span class="text-xs text-gray-400">選</span>
+            <input type="number" name="required_count" value="{{ g.required_count }}" min="1"
+                   class="border rounded-md p-1 text-xs w-12" />
+            <span class="text-xs text-gray-400">門</span>
+            <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">儲存</button>
+            <span class="text-xs text-gray-300">|</span>
+            <input type="text" name="new_group" value="{{ g.group }}" list="minor-group-options"
+                   class="border rounded-md p-1 text-xs w-28" />
+            <button type="submit" name="rename" formaction="/admin/group/rename"
+                    class="text-xs text-purple-700 hover:underline whitespace-nowrap">重新命名</button>
+            <span class="text-xs text-gray-300">|</span>
+            <button type="submit" name="delete" formaction="/admin/group/delete"
+                    class="text-xs text-red-600 hover:underline whitespace-nowrap">刪除</button>
+          </form>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <form method="post" action="/admin/group/set_requirement" class="flex items-end gap-2 flex-wrap">
+          <input type="hidden" name="year" value="{{ year }}" />
+          <input type="hidden" name="target" value="minor" />
+          <div>
+            <label class="block text-xs text-gray-500">新增分組名稱</label>
+            <input type="text" name="group" required placeholder="例如：三選一"
+                   class="border rounded-md p-1 text-sm w-40" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500">至少要選幾科</label>
+            <input type="number" name="required_count" value="1" min="1"
+                   class="border rounded-md p-1 text-sm w-16" />
+          </div>
+          <button type="submit"
+                  class="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-purple-700 whitespace-nowrap">
+            + 新增分組
+          </button>
+        </form>
+      </div>
+
+      <div>
+        <p class="text-xs font-medium text-gray-500 mb-2">
+          備註規則——例如「限修學分：19門課中至少修22學分」，用法跟主系的備註規則一樣（見上面「備註規則設定」分頁籤的類型說明）。
+        </p>
+        {% for r in minor_note_rules %}
+        <div class="bg-gray-50 border rounded-md p-3 mb-3" id="minor-note-row-{{ r.index }}">
+          {% if r.index == edit_minor_note_index %}
+          <form method="post" action="/admin/note_rule/update" class="space-y-2 note-rule-form">
+            <input type="hidden" name="year" value="{{ year }}" />
+            <input type="hidden" name="index" value="{{ r.index }}" />
+            <input type="hidden" name="target" value="minor" />
+            <div class="flex items-end gap-2 flex-wrap">
+              <div>
+                <label class="block text-xs text-gray-500">類型</label>
+                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
+                  {% for k, label in note_rule_kinds.items() %}
+                  <option value="{{ k }}" {% if k == r.kind %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">類別（選填）</label>
+                <input type="text" name="category" value="{{ r.category }}"
+                       class="border rounded-md p-1 text-sm w-48" />
+              </div>
+              <div class="flex-1 min-w-[16rem]">
+                <label class="block text-xs text-gray-500">備註文字（顯示在檢核結果頁）</label>
+                <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
+              </div>
+            </div>
+            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+              <div>
+                <label class="block text-xs text-gray-500">範圍</label>
+                <select name="scope" class="border rounded-md p-1 text-sm">
+                  {% for k, label in credit_condition_scopes.items() %}
+                  <option value="{{ k }}" {% if k == r.scope %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">方向</label>
+                <select name="direction" class="border rounded-md p-1 text-sm w-24">
+                  {% for k, label in credit_condition_directions.items() %}
+                  <option value="{{ k }}" {% if k == r.direction %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">至少</label>
+                <input type="number" step="0.5" name="min_credits" value="{{ r.min_credits }}"
+                       class="border rounded-md p-1 text-sm w-24" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
+                <input type="text" name="code_prefixes" value="{{ r.code_prefixes }}" placeholder="例如 CH"
+                       class="border rounded-md p-1 text-sm w-40" />
+              </div>
+              {{ course_input('extra_codes', 'edit-minor-' ~ r.index ~ '-extra_codes', r.extra_codes, '額外課號或課名名單（逗號分隔，選填）', '例如 CH1023, CH1024', 'w-64') }}
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
+              <a href="/admin?year={{ year }}&tab=minor#minor-note-row-{{ r.index }}" class="text-sm text-gray-500 hover:underline">取消</a>
+            </div>
+          </form>
+          {% else %}
+          <div class="flex justify-between items-start gap-3">
+            <div>
+              <span class="inline-block text-xs bg-purple-100 text-purple-700 rounded px-1.5 py-0.5 mr-2">{{ r.kind_label }}</span>
+              {% if r.category %}
+              <span class="inline-block text-xs bg-gray-200 text-gray-600 rounded px-1.5 py-0.5 mr-2">{{ r.category }}</span>
+              {% endif %}
+              <span class="text-sm text-gray-800">{{ r.text }}</span>
+              {% if r.kind == 'credit_condition' %}
+              <p class="text-xs text-gray-500 mt-1">
+                {{ '選修學分' if r.scope == 'elective' else '整份成績單' }}裡，課號{% if r.direction == 'exclude' %}「不是」{% endif %}前綴「{{ r.code_prefixes }}」{% if r.extra_codes %}或名單「{{ r.extra_codes }}」{% endif %}的部分需 ≥ {{ r.min_credits }}
+              </p>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-3 whitespace-nowrap">
+              <a href="/admin?year={{ year }}&tab=minor&edit_minor_note={{ r.index }}#minor-note-row-{{ r.index }}" class="text-sm text-blue-600 hover:underline">編輯</a>
+              <form method="post" action="/admin/note_rule/delete" class="inline"
+                    onsubmit="return confirm('刪除這條備註規則？')">
+                <input type="hidden" name="year" value="{{ year }}" />
+                <input type="hidden" name="index" value="{{ r.index }}" />
+                <input type="hidden" name="target" value="minor" />
+                <button type="submit" class="text-sm text-red-600 hover:underline">刪除</button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 mb-3">尚未設定任何輔系備註規則。</p>
+        {% endfor %}
+
+        <details class="border border-gray-200 rounded-md">
+          <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium text-blue-600 hover:bg-gray-50">
+            + 新增備註規則
+          </summary>
+          <form method="post" action="/admin/note_rule/add" class="space-y-2 p-3 bg-white border-t rounded-b-md note-rule-form">
+            <input type="hidden" name="year" value="{{ year }}" />
+            <input type="hidden" name="target" value="minor" />
+            <div class="flex items-end gap-2 flex-wrap">
+              <div>
+                <label class="block text-xs text-gray-500">類型</label>
+                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
+                  {% for k, label in note_rule_kinds.items() %}
+                  <option value="{{ k }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">類別（選填）</label>
+                <input type="text" name="category" class="border rounded-md p-1 text-sm w-48" />
+              </div>
+              <div class="flex-1 min-w-[16rem]">
+                <label class="block text-xs text-gray-500">備註文字（顯示在檢核結果頁）</label>
+                <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
+              </div>
+            </div>
+            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+              <div>
+                <label class="block text-xs text-gray-500">範圍</label>
+                <select name="scope" class="border rounded-md p-1 text-sm">
+                  {% for k, label in credit_condition_scopes.items() %}
+                  <option value="{{ k }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">方向</label>
+                <select name="direction" class="border rounded-md p-1 text-sm w-24">
+                  {% for k, label in credit_condition_directions.items() %}
+                  <option value="{{ k }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">至少</label>
+                <input type="number" step="0.5" name="min_credits"
+                       class="border rounded-md p-1 text-sm w-24" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500">課號前綴（逗號分隔）</label>
+                <input type="text" name="code_prefixes" placeholder="例如 CH"
+                       class="border rounded-md p-1 text-sm w-56" />
+              </div>
+              {{ course_input('extra_codes', 'add-minor-extra_codes', '', '額外課號或課名名單（逗號分隔，選填）', '例如 CH1023, CH1024', 'w-64') }}
+            </div>
+            <button type="submit"
+                    class="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-purple-700 whitespace-nowrap">
+              + 新增備註規則
+            </button>
+          </form>
+        </details>
+      </div>
+    </div>
+
     <script>
       // 三個分頁籤在同一個網址（/admin）裡，靠JS切換顯示/隱藏，不用重新整頁。
       // active_tab 是後端算好的初始分頁籤（例如表單送出後跳轉回來，記得跳回原本在編輯的那個分頁籤）。
-      const TAB_KEYS = ['courses', 'settings', 'notes'];
+      const TAB_KEYS = ['courses', 'settings', 'notes', 'minor'];
       function activateTab(tab) {
         if (!TAB_KEYS.includes(tab)) tab = 'courses';
         document.querySelectorAll('[data-tab-panel]').forEach((panel) => {

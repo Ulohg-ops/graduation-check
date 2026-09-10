@@ -23,7 +23,9 @@
   <header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm no-print">
     <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
     <div class="flex items-center gap-3">
-      <a href="/" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">← 上傳成績單檢核畢業資格</a>
+      <a href="{{ '/minor' if minor_only else '/' }}" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">
+        {{ '← 上傳成績單檢核輔系資格' if minor_only else '← 上傳成績單檢核畢業資格' }}
+      </a>
     </div>
   </header>
 
@@ -31,14 +33,27 @@
     {% if rules_not_configured %}
     <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則）</h1>
     <div class="bg-red-100 text-red-800 rounded-md p-4 font-medium">
+      {% if minor_only %}
+      ⚠️ {{ year }} 學年度目前還沒有設定輔系規則，沒有規則可以比對，無法檢核。
+      請先到「應修科目表管理」→「輔系」分頁籤為這個學年度建立規則後再試一次。
+      {% else %}
       ⚠️ {{ year }} 學年度目前還沒有設定畢業門檻規則（沒有必修科目清單，或畢業總學分是0），
       沒有規則可以比對，無法檢核。請先到「調整應修科目表」為這個學年度建立規則後再試一次。
+      {% endif %}
     </div>
-    <a href="/admin?year={{ year }}" class="inline-block text-blue-600 hover:underline">前往設定 {{ year }} 學年度規則 →</a>
-    <a href="/" class="inline-block text-blue-600 hover:underline">← 上傳成績單檢核畢業資格</a>
+    <a href="/admin?year={{ year }}{{ '&tab=minor' if minor_only else '' }}" class="inline-block text-blue-600 hover:underline">前往設定 {{ year }} 學年度規則 →</a>
+    <a href="{{ '/minor' if minor_only else '/' }}" class="inline-block text-blue-600 hover:underline">
+      {{ '← 上傳成績單檢核輔系資格' if minor_only else '← 上傳成績單檢核畢業資格' }}
+    </a>
     {% else %}
     <div class="flex justify-between items-center flex-wrap gap-3">
-      <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）</h1>
+      <h1 class="text-xl font-bold">
+        {% if minor_only %}
+        輔系資格檢核結果（{{ year }} 學年度規則）
+        {% else %}
+        檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）
+        {% endif %}
+      </h1>
       {% if not is_mock %}
       <div class="flex items-center gap-2 no-print">
         <button id="download-all-pdf"
@@ -141,6 +156,7 @@
       </div>
       {% else %}
 
+      {% if not minor_only %}
       <div class="rounded-lg p-4 mb-4 border {{ 'border-green-200 bg-green-50' if r.passed else 'border-red-200 bg-red-50' }}">
         <div class="flex items-center gap-2 font-semibold {{ 'text-green-800' if r.passed else 'text-red-800' }}">
           <span class="text-lg leading-none">{{ '✅' if r.passed else '❌' }}</span>
@@ -179,6 +195,7 @@
         </div>
         {% endif %}
       </div>
+      {% endif %}
 
       <div class="space-y-4">
         {% if r.elective_courses %}
@@ -333,9 +350,82 @@
       </div>
       {% endif %}
     </div>
+
+    {% if r.minor %}
+    <div class="bg-white shadow-md rounded-lg p-6 result-card" data-result-index="{{ loop.index0 }}"
+         {% if not is_mock and results|length > 1 and loop.index0 != 0 %}hidden{% endif %}>
+      <div class="rounded-lg p-4 mb-4 border {{ 'border-green-200 bg-green-50' if r.minor.passed else 'border-red-200 bg-red-50' }}">
+        <div class="flex items-center gap-2 font-semibold {{ 'text-green-800' if r.minor.passed else 'text-red-800' }}">
+          <span class="text-lg leading-none">{{ '✅' if r.minor.passed else '❌' }}</span>
+          {{ r.minor.name }}資格：{{ '已符合' if r.minor.passed else '尚未符合' }}
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        {% if r.minor.missing_required %}
+        <details open class="rounded-lg border border-red-200 overflow-hidden">
+          <summary class="px-3 py-2 bg-red-50 border-b border-red-200 text-sm font-medium text-red-800 cursor-pointer hover:bg-red-100">
+            <span class="inline-flex w-full items-center justify-between gap-2">
+              <span>📚 未通過科目</span>
+              <span class="text-xs text-red-400 font-normal whitespace-nowrap">{{ r.minor.missing_required | length }} 項</span>
+            </span>
+          </summary>
+          <ul class="divide-y divide-gray-100 bg-white">
+            {% for m in r.minor.missing_required %}
+            <li class="px-3 py-2 text-sm text-red-700">
+              <span class="font-medium">{{ m.name }}</span>
+              <span class="text-red-400">（{{ m.missing_codes | join('、') }}）</span>
+              {% if m.note %}<div class="text-xs text-red-400 mt-0.5">{{ m.note }}</div>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+
+        {% if r.minor.note_sections %}
+        <details open class="rounded-lg border border-blue-200 overflow-hidden">
+          <summary class="px-3 py-2 bg-blue-50 border-b border-blue-200 text-sm font-medium text-blue-800 cursor-pointer hover:bg-blue-100">
+            <span class="inline-flex w-full items-center justify-between gap-2">
+              <span>📌 備註規則</span>
+              <span class="text-xs text-blue-400 font-normal whitespace-nowrap">{{ r.minor.note_results | length }} 項</span>
+            </span>
+          </summary>
+          <div class="bg-white">
+            {% for section in r.minor.note_sections %}
+            {% if section.category %}
+            <div class="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100">{{ section.category }}</div>
+            {% endif %}
+            <ul class="divide-y divide-gray-100">
+              {% for n in section.entries %}
+              <li class="px-3 py-2 text-sm">
+                <div class="{{ 'text-red-700' if n.status == 'fail' else ('text-green-700' if n.status == 'ok' else 'text-gray-600') }}">
+                  {%- if n.status == 'ok' -%}✅{%- elif n.status == 'fail' -%}❌{%- else -%}ℹ️{%- endif -%}
+                  {{ n.text }}
+                  {% if n.detail %}<span class="text-xs text-gray-400">（{{ n.detail }}）</span>{% endif %}
+                </div>
+                {% if n.matched_courses %}
+                <div class="mt-1.5 pl-3 border-l-2 border-gray-100">
+                  <p class="text-xs text-gray-500">{{ n.match_label }}（{{ n.matched_courses | length }} 科目）</p>
+                  <ul class="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
+                    {% for c in n.matched_courses %}
+                    <li>{{ c.code }}　{{ c.name }}（{{ c.credit }} 學分）</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% endfor %}
 
-    <a href="/" class="inline-block text-blue-600 hover:underline no-print">← 重新上傳</a>
+    <a href="{{ '/minor' if minor_only else '/' }}" class="inline-block text-blue-600 hover:underline no-print">← 重新上傳</a>
     {% endif %}
   </div>
 
@@ -343,9 +433,22 @@
     const results = {{ results | tojson }};
     const requiredTotal = {{ required_total | tojson }};
     const year = {{ year | tojson }};
+    const minorOnly = {{ minor_only | default(false) | tojson }};
 
     // 跟畫面上綠色/紅色那個判定框一模一樣的文字，讓沒開網頁的人看CSV也看得懂結論
     function statusText(r) {
+      // /minor 上傳頁：r.passed是輔系資格的判定（見_build_minor_only_entry），主系欄位
+      // （required_credits等）都是中性預設值，不能拿來組「畢業資格」文字，要另外組輔系專用的文字。
+      if (minorOnly) {
+        const name = (r.minor && r.minor.name) || '輔系';
+        if (r.passed) return `✅ 已符合${name}資格`;
+        const missingNames = (r.minor && r.minor.missing_required || []).map((m) => m.name);
+        const noteFailed = (r.minor && r.minor.note_results || []).some((n) => n.status === 'fail');
+        const reasons = [];
+        if (missingNames.length) reasons.push(`還沒通過：${missingNames.join('、')}`);
+        if (noteFailed) reasons.push('備註規則未符合');
+        return `❌ 尚未符合${name}資格${reasons.length ? '（' + reasons.join('；') + '）' : ''}`;
+      }
       if (r.passed) {
         return `✅ 已符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}，應修必修科目皆已通過）`;
       }
@@ -423,14 +526,23 @@
       });
     });
 
-    // 一次上傳多份成績單時，同一時間只顯示一張結果卡片，上面的「學生總覽」清單/上一位/下一位
-    // 負責切換要顯示哪一張——資料本來就一次全部載入了，純前端show/hide，不用重新打後端。
+    // 一次上傳多份成績單時，同一時間只顯示一位的結果卡片，上面的「學生總覽」清單/上一位/下一位
+    // 負責切換要顯示哪一位——資料本來就一次全部載入了，純前端show/hide，不用重新打後端。
+    // 有勾選/在/minor檢查輔系的話，一位學生會對應兩張卡片（主系結果+輔系資格各自一張，
+    // 都用同一個data-result-index標記是哪一位），所以「共幾位」不能直接看resultCards.length
+    // （那是卡片數，不是人數），要看實際出現過的data-result-index有幾種不同的值；捲動/上一位
+    // 下一位也要用「這個index底下所有卡片」而不是resultCards[index]直接對位置存取。
     const resultCards = Array.from(document.querySelectorAll('.result-card'));
     const summaryRows = Array.from(document.querySelectorAll('.summary-row'));
     const prevBtn = document.getElementById('prev-result');
     const nextBtn = document.getElementById('next-result');
     const pageIndicator = document.getElementById('page-indicator');
+    const resultCount = new Set(resultCards.map((c) => c.dataset.resultIndex)).size;
     let currentResultIndex = 0;
+
+    function cardsForIndex(index) {
+      return resultCards.filter((c) => Number(c.dataset.resultIndex) === index);
+    }
 
     function renderResultNav() {
       resultCards.forEach((card) => {
@@ -441,18 +553,18 @@
         row.classList.toggle('bg-blue-50', active);
         row.classList.toggle('font-medium', active);
       });
-      if (pageIndicator) pageIndicator.textContent = `第 ${currentResultIndex + 1} / ${resultCards.length} 位`;
+      if (pageIndicator) pageIndicator.textContent = `第 ${currentResultIndex + 1} / ${resultCount} 位`;
       if (prevBtn) prevBtn.disabled = currentResultIndex === 0;
-      if (nextBtn) nextBtn.disabled = currentResultIndex === resultCards.length - 1;
+      if (nextBtn) nextBtn.disabled = currentResultIndex === resultCount - 1;
     }
 
     function goToResult(index, { scroll = false } = {}) {
-      currentResultIndex = Math.max(0, Math.min(index, resultCards.length - 1));
+      currentResultIndex = Math.max(0, Math.min(index, resultCount - 1));
       renderResultNav();
-      if (scroll) resultCards[currentResultIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (scroll) cardsForIndex(currentResultIndex)[0]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    if (resultCards.length > 1) {
+    if (resultCount > 1) {
       prevBtn?.addEventListener('click', () => goToResult(currentResultIndex - 1, { scroll: true }));
       nextBtn?.addEventListener('click', () => goToResult(currentResultIndex + 1, { scroll: true }));
       summaryRows.forEach((row) => {
@@ -492,7 +604,9 @@
 
     document.querySelectorAll('.download-one-pdf').forEach((btn) => {
       btn.addEventListener('click', () => {
-        preparePrintCards([resultCards[Number(btn.dataset.index)]]);
+        // 用data-result-index找這位學生「所有」卡片（主系+輔系都要印），不能直接用陣列
+        // 位置存取resultCards[index]——卡片數可能比人數多，位置索引跟人物索引對不上。
+        preparePrintCards(cardsForIndex(Number(btn.dataset.index)));
         window.print();
       });
     });

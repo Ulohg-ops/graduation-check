@@ -280,6 +280,88 @@
   required_credits: 112.0
   elective_credits: 16.0
   core_required_credits: 0.0
+  minor:
+    name: 化材系輔系
+    required_courses:
+    - name: 化學反應工程
+      code: CH3011
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 儀器分析
+      code: CH3012
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 材料工程概論Ⅰ
+      code: CH1023
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 化工與材料熱力學Ⅰ
+      code: CH3059
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅰ
+      code: CH2021
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅱ
+      code: CH3042
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅲ
+      code: CH3043
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    group_requirements:
+      三選一: 1
+    note_rules:
+    - kind: credit_condition
+      category: ''
+      text: 限修學分：須於輔系科目表19門課中至少修習22學分。
+      scope: all
+      direction: include
+      min_credits: 22
+      code_prefixes: []
+      extra_codes:
+      - CH1023
+      - CH1024
+      - CH3059
+      - CH3060
+      - CH3012
+      - CH2021
+      - CH3042
+      - CH3043
+      - CH3055
+      - CH3011
+      - CH4042
+      - CH2033
+      - CH4012
+      - CH4049
+      - CH4051
+      - CH2026
+      - CH4062
+      - CH2031
+      - CH4002
 '112':
   total_credits: 128
   required_courses:
@@ -561,6 +643,88 @@
   required_credits: 112
   elective_credits: 16
   core_required_credits: 0.0
+  minor:
+    name: 化材系輔系
+    required_courses:
+    - name: 化學反應工程
+      code: CH3011
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 儀器分析
+      code: CH3012
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 材料工程概論Ⅰ
+      code: CH1023
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 化工與材料熱力學Ⅰ
+      code: CH3059
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅰ
+      code: CH2021
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅱ
+      code: CH3042
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅲ
+      code: CH3043
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    group_requirements:
+      三選一: 1
+    note_rules:
+    - kind: credit_condition
+      category: ''
+      text: 限修學分：須於輔系科目表19門課中至少修習22學分。
+      scope: all
+      direction: include
+      min_credits: 22
+      code_prefixes: []
+      extra_codes:
+      - CH1023
+      - CH1024
+      - CH3059
+      - CH3060
+      - CH3012
+      - CH2021
+      - CH3042
+      - CH3043
+      - CH3055
+      - CH3011
+      - CH4042
+      - CH2033
+      - CH4012
+      - CH4049
+      - CH4051
+      - CH2026
+      - CH4062
+      - CH2031
+      - CH4002
 '111':
   total_credits: 128
   required_courses:
@@ -841,6 +1005,88 @@
     - EG3004
   required_credits: 112
   elective_credits: 16
+  minor:
+    name: 化材系輔系
+    required_courses:
+    - name: 化學反應工程
+      code: CH3011
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 儀器分析
+      code: CH3012
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 材料工程概論Ⅰ
+      code: CH1023
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 化工與材料熱力學Ⅰ
+      code: CH3059
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅰ
+      code: CH2021
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅱ
+      code: CH3042
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅲ
+      code: CH3043
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    group_requirements:
+      三選一: 1
+    note_rules:
+    - kind: credit_condition
+      category: ''
+      text: 限修學分：須於輔系科目表19門課中至少修習22學分。
+      scope: all
+      direction: include
+      min_credits: 22
+      code_prefixes: []
+      extra_codes:
+      - CH1023
+      - CH1024
+      - CH3059
+      - CH3060
+      - CH3012
+      - CH2021
+      - CH3042
+      - CH3043
+      - CH3055
+      - CH3011
+      - CH4042
+      - CH2033
+      - CH4012
+      - CH4049
+      - CH4051
+      - CH2026
+      - CH4062
+      - CH2031
+      - CH4002
 '110':
   total_credits: 0
   required_courses: []
@@ -1126,6 +1372,88 @@
     - EG3004
   required_credits: 112
   elective_credits: 16.0
+  minor:
+    name: 化材系輔系
+    required_courses:
+    - name: 化學反應工程
+      code: CH3011
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 儀器分析
+      code: CH3012
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 材料工程概論Ⅰ
+      code: CH1023
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 化工與材料熱力學Ⅰ
+      code: CH3059
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅰ
+      code: CH2021
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅱ
+      code: CH3042
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅲ
+      code: CH3043
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    group_requirements:
+      三選一: 1
+    note_rules:
+    - kind: credit_condition
+      category: ''
+      text: 限修學分：須於輔系科目表19門課中至少修習22學分。
+      scope: all
+      direction: include
+      min_credits: 22
+      code_prefixes: []
+      extra_codes:
+      - CH1023
+      - CH1024
+      - CH3059
+      - CH3060
+      - CH3012
+      - CH2021
+      - CH3042
+      - CH3043
+      - CH3055
+      - CH3011
+      - CH4042
+      - CH2033
+      - CH4012
+      - CH4049
+      - CH4051
+      - CH2026
+      - CH4062
+      - CH2031
+      - CH4002
 '115':
   total_credits: 128.0
   required_courses:
@@ -1439,3 +1767,85 @@
     extra_codes: []
   required_credits: 112
   elective_credits: 16.0
+  minor:
+    name: 化材系輔系
+    required_courses:
+    - name: 化學反應工程
+      code: CH3011
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 儀器分析
+      code: CH3012
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 材料工程概論Ⅰ
+      code: CH1023
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 化工與材料熱力學Ⅰ
+      code: CH3059
+      credits: 3
+      category: 必修
+      group: ''
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅰ
+      code: CH2021
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅱ
+      code: CH3042
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    - name: 輸送現象與單元操作Ⅲ
+      code: CH3043
+      credits: 3
+      category: 必修
+      group: 三選一
+      tier: ''
+      note: ''
+    group_requirements:
+      三選一: 1
+    note_rules:
+    - kind: credit_condition
+      category: ''
+      text: 限修學分：須於輔系科目表19門課中至少修習22學分。
+      scope: all
+      direction: include
+      min_credits: 22
+      code_prefixes: []
+      extra_codes:
+      - CH1023
+      - CH1024
+      - CH3059
+      - CH3060
+      - CH3012
+      - CH2021
+      - CH3042
+      - CH3043
+      - CH3055
+      - CH3011
+      - CH4042
+      - CH2033
+      - CH4012
+      - CH4049
+      - CH4051
+      - CH2026
+      - CH4062
+      - CH2031
+      - CH4002

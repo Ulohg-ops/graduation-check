@@ -482,11 +482,46 @@ def _group_note_results_by_category(note_results: list) -> list:
     return sections
 
 
+def _build_minor_result(minor_data: dict, result: dict) -> dict:
+    """輔系資格是跟主系完全獨立的一套「應修科目表」（自己的required_courses/group_requirements/
+    note_rules），檢核邏輯直接重用missing_required_courses()跟evaluate_note_rules()——輔系的
+    規則形狀（固定必修幾門＋M選N分組、限修總學分門檻）跟主系的完全一樣，差別只在這套規則不能混進
+    主系的required_courses，不然主系學生也會被要求要修這些輔系限定的課。只有使用者上傳成績單時
+    勾選「也檢查輔系」才會呼叫這個函式，不是每份成績單都檢查（不是每個學生都有修輔系）。
+    """
+    required_courses = minor_data.get("required_courses", [])
+    group_requirements = minor_data.get("group_requirements", {})
+    note_rules = minor_data.get("note_rules", [])
+    missing_required = missing_required_courses(required_courses, result["passed_codes"], group_requirements)
+    note_results = evaluate_note_rules(
+        note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
+    )
+    note_failed = any(n["status"] == "fail" for n in note_results)
+    return {
+        "name": minor_data.get("name") or "輔系",
+        "passed": not missing_required and not note_failed,
+        "missing_required": missing_required,
+        "note_results": note_results,
+        "note_sections": _group_note_results_by_category(note_results),
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     rules = load_rules()
     years = sorted(rules.keys(), reverse=True)
     return templates.TemplateResponse(request, "index.html", {"years": years})
+
+
+@app.get("/minor", response_class=HTMLResponse)
+async def minor_index(request: Request):
+    """輔系資格檢核的上傳頁，跟主系（/）分開，避免使用者以為輔系是主系檢核的附加選項——
+    上傳同一種PDF，只是這個頁面送出後只會跑輔系那套規則（/check的minor_only模式），
+    結果頁也只顯示輔系資格判定，不會混進主系「畢業資格」的判定結果。
+    """
+    rules = load_rules()
+    years = sorted(rules.keys(), reverse=True)
+    return templates.TemplateResponse(request, "index.html", {"years": years, "minor_only": True})
 
 
 def mock_transcript(year_data: dict) -> dict:
@@ -600,6 +635,9 @@ def _build_result_entry(
         "missing_required": missing_required,
         "note_results": note_results,
         "note_sections": _group_note_results_by_category(note_results),
+        # 輔系資格檢核是/minor專用頁面的獨立流程（見_build_minor_only_entry），不會混進主系
+        # 這裡的判定結果，所以這裡固定是None——結果頁看到None就不會顯示輔系那個區塊。
+        "minor": None,
     }
 
 
@@ -628,13 +666,105 @@ def _build_error_entry(filename: str, error: str) -> dict:
         "missing_required": [],
         "note_results": [],
         "note_sections": [],
+        "minor": None,
+    }
+
+
+def _build_minor_only_entry(filename: str, result: dict, minor_data: dict) -> dict:
+    """/minor 專用上傳頁（跟主系上傳頁分開）的結果項——沿用跟_build_result_entry一樣的欄位骨架，
+    讓result.html既有的樣板／CSV／JS邏輯不用額外判斷欄位缺不缺，主系相關欄位（必修/選修學分
+    門檻等）全部給「不檢查」的中性值，只有minor欄位是真的算出來的判定結果。passed故意設成
+    minor_result的passed，這樣結果頁最上面「學生總覽」清單的狀態欄、CSV的判定結果欄，
+    不用另外改邏輯就能正確顯示輔系判定（不是主系判定）。
+    """
+    minor_result = _build_minor_result(minor_data, result)
+    return {
+        "filename": filename,
+        "error": None,
+        "total_credit": result["total_credit"],
+        "credit_ok": True,
+        "required_credits": 0,
+        "required_credit_total": 0,
+        "required_credit_ok": True,
+        "core_required_credits": 0,
+        "core_required_credit_total": 0,
+        "core_required_credit_ok": True,
+        "elective_credits": 0,
+        "elective_credit_total": 0,
+        "elective_credit_ok": True,
+        "elective_courses": [],
+        "passed": minor_result["passed"],
+        "courses": result["courses"],
+        "has_text": result["has_text"],
+        "unmet_categories": [],
+        "missing_required": [],
+        "note_results": [],
+        "note_sections": [],
+        "minor": minor_result,
     }
 
 
 @app.post("/check", response_class=HTMLResponse)
-async def check(request: Request, year: str = Form(...), files: List[UploadFile] = File([])):
+async def check(
+    request: Request,
+    year: str = Form(...),
+    files: List[UploadFile] = File([]),
+    minor_only: bool = Form(False),
+):
     rules = load_rules()
     year_data = rules.get(year, {})
+
+    # /minor 上傳頁送出的表單一律走這個分支：只比對輔系規則，完全不管主系的必修/選修學分
+    # 門檻，結果頁也只顯示輔系資格判定，不會出現「畢業資格」字樣（那是主系專屬的判定）。
+    if minor_only:
+        minor_data = year_data.get("minor")
+        if not minor_data:
+            return templates.TemplateResponse(
+                request,
+                "result.html",
+                {
+                    "year": year,
+                    "required_total": 0,
+                    "results": [],
+                    "is_mock": False,
+                    "rules_not_configured": True,
+                    "minor_only": True,
+                },
+            )
+
+        uploaded = [f for f in files if f.filename][:MAX_FILES]
+        results = []
+        is_mock = not uploaded
+        if is_mock:
+            result = mock_transcript({"required_courses": minor_data.get("required_courses", [])})
+            results.append(_build_minor_only_entry("（預覽假資料，尚未上傳成績單）", result, minor_data))
+        else:
+            for f in uploaded:
+                pdf_bytes = await f.read()
+                if len(pdf_bytes) > MAX_FILE_SIZE:
+                    results.append(
+                        _build_error_entry(f.filename, f"檔案大小超過{MAX_FILE_SIZE // (1024 * 1024)}MB，請確認是不是正確的成績單PDF")
+                    )
+                    continue
+                try:
+                    result = parse_transcript(pdf_bytes)
+                except Exception:
+                    results.append(_build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀"))
+                    continue
+                results.append(_build_minor_only_entry(f.filename, result, minor_data))
+
+        return templates.TemplateResponse(
+            request,
+            "result.html",
+            {
+                "year": year,
+                "required_total": 0,
+                "results": results,
+                "is_mock": is_mock,
+                "minor_only": True,
+            },
+        )
+
     required_total = year_data.get("total_credits", 0)
     required_credits = year_data.get("required_credits", 0)
     core_required_credits = year_data.get("core_required_credits", 0)
@@ -850,11 +980,40 @@ def _group_options_and_requirements(required_courses: list, year_data: dict) -> 
     return group_options, group_requirements
 
 
+def _build_course_sections(required_courses: list, group_requirements: dict) -> list:
+    """科目管理頁（主系、輔系共用）畫面分區的依據：優先用「分組」（N選M功能性分組），沒有分組才退而
+    用「層級」（純顯示分類），兩者都沒有的科目不分區、直接顯示。
+
+    用一般字典依key收集（不用itertools.groupby），因為groupby只會合併「清單中緊鄰」的相同key
+    項目——新增科目是直接append到清單最後面，如果用groupby，同分組的科目只要不是緊接在一起，
+    就會被拆成兩個同名區塊，畫面上看起來像新科目沒被放進分組裡。
+    """
+    sections_by_key: dict = {}
+    for c in required_courses:
+        key = c["group"] or c["tier"]
+        sections_by_key.setdefault(key, []).append(c)
+
+    course_sections = []
+    for key, items_list in sections_by_key.items():
+        is_group = bool(items_list[0]["group"])
+        course_sections.append(
+            {
+                "key": key,
+                "is_group": is_group,
+                "required_count": group_requirements.get(key, 1) if is_group else None,
+                "courses": items_list,
+            }
+        )
+    return course_sections
+
+
 def _admin_context(
     year: Optional[str],
     tab: str = "courses",
     edit: Optional[int] = None,
     edit_note: Optional[int] = None,
+    edit_minor: Optional[int] = None,
+    edit_minor_note: Optional[int] = None,
     import_error: bool = False,
 ) -> dict:
     """/admin 頁面（GET路由、跟「匯入規則失敗要重新顯示這個頁面」共用）的畫面資料，抽出來共用，
@@ -874,31 +1033,9 @@ def _admin_context(
     table_colspan = 5
 
     group_options, group_requirements = _group_options_and_requirements(required_courses, year_data)
-    stored_group_requirements = year_data.get("group_requirements", {})
     # 層級純粹是顯示分類用（共同必修/院訂必修/系訂必修...），不影響判定邏輯，給表單自動完成選項用
     tier_options = sorted({c["tier"] for c in required_courses if c["tier"]})
-
-    # 畫面分區的依據：優先用「分組」（N選M功能性分組），沒有分組才退而用「層級」（純顯示分類），
-    # 兩者都沒有的科目不分區、直接顯示
-    # 用一般字典依key收集（不用itertools.groupby），因為groupby只會合併「清單中緊鄰」的
-    # 相同key項目——新增科目是直接append到清單最後面，如果用groupby，同分組的科目只要不是
-    # 緊接在一起，就會被拆成兩個同名區塊，畫面上看起來像新科目沒被放進分組裡。
-    sections_by_key: dict = {}
-    for c in required_courses:
-        key = c["group"] or c["tier"]
-        sections_by_key.setdefault(key, []).append(c)
-
-    course_sections = []
-    for key, items_list in sections_by_key.items():
-        is_group = bool(items_list[0]["group"])
-        course_sections.append(
-            {
-                "key": key,
-                "is_group": is_group,
-                "required_count": stored_group_requirements.get(key, 1) if is_group else None,
-                "courses": items_list,
-            }
-        )
+    course_sections = _build_course_sections(required_courses, year_data.get("group_requirements", {}))
 
     note_rules = [_normalize_note_rule(i, r) for i, r in enumerate(year_data.get("note_rules", []))]
     # 分類自動完成建議：PDF原本的一/二/三段落，加上這個學年度已經用過的分類（可能是自訂的）
@@ -910,6 +1047,19 @@ def _admin_context(
         ),
     )
     course_catalog = _course_catalog(year_data.get("required_courses", []))
+
+    # 輔系是跟主系完全獨立的一套小型「應修科目表」（見_build_minor_result的說明），這裡照主系
+    # 那一套算法（正規化課程、分組選項、備註規則正規化）算一份輔系專用的版本，給/admin的
+    # 「輔系」分頁籤用；輔系目前不需要層級（tier）分區，科目數量少、直接列表就好。
+    minor_data = year_data.get("minor") or {}
+    minor_required_courses = [
+        _normalize_course(i, c) for i, c in enumerate(minor_data.get("required_courses", []))
+    ]
+    minor_group_options, minor_group_requirements = _group_options_and_requirements(
+        minor_required_courses, minor_data
+    )
+    minor_course_sections = _build_course_sections(minor_required_courses, minor_data.get("group_requirements", {}))
+    minor_note_rules = [_normalize_note_rule(i, r) for i, r in enumerate(minor_data.get("note_rules", []))]
 
     return {
         "active_tab": tab,
@@ -934,6 +1084,14 @@ def _admin_context(
         "note_category_options": note_category_options,
         "edit_note_index": edit_note,
         "import_error": import_error,
+        "minor_name": minor_data.get("name") or "輔系",
+        "minor_required_courses": minor_required_courses,
+        "minor_course_sections": minor_course_sections,
+        "minor_group_options": minor_group_options,
+        "minor_group_requirements": minor_group_requirements,
+        "minor_note_rules": minor_note_rules,
+        "edit_minor_index": edit_minor,
+        "edit_minor_note_index": edit_minor_note,
     }
 
 
@@ -944,12 +1102,16 @@ async def admin(
     tab: str = "courses",
     edit: Optional[int] = None,
     edit_note: Optional[int] = None,
+    edit_minor: Optional[int] = None,
+    edit_minor_note: Optional[int] = None,
 ):
-    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定」三個分頁籤，
-    用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」（例如表單送出
-    後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定／輔系」
+    四個分頁籤，用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」
+    （例如表單送出後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
     """
-    return templates.TemplateResponse(request, "admin.html", _admin_context(year, tab, edit, edit_note))
+    return templates.TemplateResponse(
+        request, "admin.html", _admin_context(year, tab, edit, edit_note, edit_minor, edit_minor_note)
+    )
 
 
 @app.post("/admin/year/add")
@@ -999,50 +1161,70 @@ async def admin_year_delete(year: str = Form(...)):
     return RedirectResponse("/admin", status_code=303)
 
 
+def _resolve_target_data(rules: dict, year: str, target: str) -> dict:
+    """後台的科目/分組/層級/備註規則管理，主系跟輔系共用同一套表單跟路由，只差在改的是
+    rules[year] 本身還是 rules[year]['minor']——target 就是用來分辨要改哪一份。輔系規則第一次
+    被編輯時如果還沒建立過，就順便建一個空骨架出來，不用另外一個「新增輔系」的步驟。
+    """
+    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
+    if target == "minor":
+        return year_data.setdefault(
+            "minor", {"name": "輔系", "required_courses": [], "group_requirements": {}, "note_rules": []}
+        )
+    return year_data
+
+
 @app.post("/admin/group/set_requirement")
-async def admin_group_set_requirement(year: str = Form(...), group: str = Form(...), required_count: int = Form(...)):
+async def admin_group_set_requirement(
+    year: str = Form(...), group: str = Form(...), required_count: int = Form(...), target: str = Form("main")
+):
     rules = load_rules()
-    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": [], "group_requirements": {}})
-    year_data.setdefault("group_requirements", {})[group] = required_count
+    target_data = _resolve_target_data(rules, year, target)
+    target_data.setdefault("group_requirements", {})[group] = required_count
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
+    tab = "minor" if target == "minor" else "settings"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/group/rename")
-async def admin_group_rename(year: str = Form(...), old_group: str = Form(...), new_group: str = Form("")):
+async def admin_group_rename(
+    year: str = Form(...), old_group: str = Form(...), new_group: str = Form(""), target: str = Form("main")
+):
     old_group = old_group.strip()
     new_group = new_group.strip()
     rules = load_rules()
-    year_data = rules.get(year, {})
+    target_data = _resolve_target_data(rules, year, target)
 
     if new_group and new_group != old_group:
         # 把用到舊名稱的科目全部改成新名稱，這個分組底下的科目才不會因為改名字就散掉
-        for c in year_data.get("required_courses", []):
+        for c in target_data.get("required_courses", []):
             if c.get("group") == old_group:
                 c["group"] = new_group
-        group_requirements = year_data.setdefault("group_requirements", {})
+        group_requirements = target_data.setdefault("group_requirements", {})
         if old_group in group_requirements:
             old_count = group_requirements.pop(old_group)
             # 如果改名後的名稱本來就是另一個既有分組，保留那個分組原本設定的「選幾門」，不要被覆蓋掉
             group_requirements.setdefault(new_group, old_count)
         save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
+    tab = "minor" if target == "minor" else "settings"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/group/delete")
-async def admin_group_delete(year: str = Form(...), group: str = Form(...)):
+async def admin_group_delete(year: str = Form(...), group: str = Form(...), target: str = Form("main")):
     rules = load_rules()
-    year_data = rules.get(year, {})
+    target_data = _resolve_target_data(rules, year, target)
 
     # 刪除分組不會連科目一起刪掉，科目會變回沒有分組的一般必修/選修科目，只是不再綁在一起判定
-    for c in year_data.get("required_courses", []):
+    for c in target_data.get("required_courses", []):
         if c.get("group") == group:
             c["group"] = ""
-    year_data.get("group_requirements", {}).pop(group, None)
+    target_data.get("group_requirements", {}).pop(group, None)
     save_rules(rules)
 
-    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
+    tab = "minor" if target == "minor" else "settings"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/tier/rename")
@@ -1087,17 +1269,19 @@ async def admin_course_add(
     tier: str = Form(""),
     note: str = Form(""),
     code_prefixes: str = Form(""),
+    target: str = Form("main"),
 ):
     rules = load_rules()
-    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
-    year_data.setdefault("required_courses", []).append(
+    target_data = _resolve_target_data(rules, year, target)
+    target_data.setdefault("required_courses", []).append(
         {
             "name": name, "code": code, "credits": credits, "category": category,
             "group": group, "tier": tier, "note": note, "code_prefixes": _parse_code_list(code_prefixes),
         }
     )
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    tab = "minor" if target == "minor" else "courses"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/course/update")
@@ -1112,26 +1296,32 @@ async def admin_course_update(
     tier: str = Form(""),
     note: str = Form(""),
     code_prefixes: str = Form(""),
+    target: str = Form("main"),
 ):
     rules = load_rules()
-    courses = rules.get(year, {}).get("required_courses", [])
+    target_data = _resolve_target_data(rules, year, target)
+    courses = target_data.get("required_courses", [])
     if 0 <= index < len(courses):
         courses[index] = {
             "name": name, "code": code, "credits": credits, "category": category,
             "group": group, "tier": tier, "note": note, "code_prefixes": _parse_code_list(code_prefixes),
         }
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}#row-{index}", status_code=303)
+    tab = "minor" if target == "minor" else "courses"
+    row_prefix = "minor-row" if target == "minor" else "row"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
 
 
 @app.post("/admin/course/delete")
-async def admin_course_delete(year: str = Form(...), index: int = Form(...)):
+async def admin_course_delete(year: str = Form(...), index: int = Form(...), target: str = Form("main")):
     rules = load_rules()
-    courses = rules.get(year, {}).get("required_courses", [])
+    target_data = _resolve_target_data(rules, year, target)
+    courses = target_data.get("required_courses", [])
     if 0 <= index < len(courses):
         courses.pop(index)
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
+    tab = "minor" if target == "minor" else "courses"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/total_credits")
@@ -1183,14 +1373,16 @@ async def admin_note_rule_add(
     min_credits: float = Form(0),
     code_prefixes: str = Form(""),
     extra_codes: str = Form(""),
+    target: str = Form("main"),
 ):
     rules = load_rules()
-    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
-    year_data.setdefault("note_rules", []).append(
+    target_data = _resolve_target_data(rules, year, target)
+    target_data.setdefault("note_rules", []).append(
         _build_note_rule(kind, category, text, scope, direction, min_credits, code_prefixes, extra_codes)
     )
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
+    tab = "minor" if target == "minor" else "notes"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/note_rule/update")
@@ -1205,23 +1397,29 @@ async def admin_note_rule_update(
     min_credits: float = Form(0),
     code_prefixes: str = Form(""),
     extra_codes: str = Form(""),
+    target: str = Form("main"),
 ):
     rules = load_rules()
-    note_rules = rules.get(year, {}).get("note_rules", [])
+    target_data = _resolve_target_data(rules, year, target)
+    note_rules = target_data.get("note_rules", [])
     if 0 <= index < len(note_rules):
         note_rules[index] = _build_note_rule(kind, category, text, scope, direction, min_credits, code_prefixes, extra_codes)
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}&tab=notes#note-row-{index}", status_code=303)
+    tab = "minor" if target == "minor" else "notes"
+    row_prefix = "minor-note-row" if target == "minor" else "note-row"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
 
 
 @app.post("/admin/note_rule/delete")
-async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...)):
+async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...), target: str = Form("main")):
     rules = load_rules()
-    note_rules = rules.get(year, {}).get("note_rules", [])
+    target_data = _resolve_target_data(rules, year, target)
+    note_rules = target_data.get("note_rules", [])
     if 0 <= index < len(note_rules):
         note_rules.pop(index)
     save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}&tab=notes", status_code=303)
+    tab = "minor" if target == "minor" else "notes"
+    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
 
 
 @app.get("/admin/rules/export")
