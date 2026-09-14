@@ -30,24 +30,43 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open("nul" if sys.platform == "win32" else "/dev/null", "w", encoding="utf-8")
 
-# 跟main.py同一套判斷（見那邊的說明）：打包後要用.exe實際的位置當基準，圖示檔才找得到。
+# 跟main.py同一套判斷（見那邊的說明）：打包後要用.exe實際的位置當基準，圖示/版本檔才找得到。
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent
 else:
     BASE_DIR = Path(__file__).resolve().parent
 ICON_PATH = BASE_DIR / "static" / "icon.ico"
+VERSION_FILE = BASE_DIR / "version.txt"
 
 HOST = "127.0.0.1"
 PORT = 8000
 URL = f"http://{HOST}:{PORT}"
 
-# 跟網頁介面（templates裡的Tailwind設定）用同一套配色，讓執行檔的小視窗跟瀏覽器裡的畫面
-# 看起來是同一套系統，不是兩個風格對不上的介面。
-BLUE = "#2563EB"       # tailwind blue-600
-BLUE_DARK = "#1D4ED8"  # tailwind blue-700，按鈕按下時的深色
-GREEN = "#16A34A"      # tailwind green-600
-GRAY_TEXT = "#6B7280"  # tailwind gray-500
-BG = "#F9FAFB"         # tailwind gray-50
+# 這個小視窗要看起來跟瀏覽器裡的畫面是同一套系統，顏色直接照抄templates/index.html等頁面
+# 實際用的Tailwind class對應的色碼（bg-gray-50頁面、bg-white卡片、bg-blue-600按鈕、
+# text-green-800/bg-green-50「已通過」狀態列……），不是另外發明一套配色。
+PAGE_BG = "#F9FAFB"     # tailwind gray-50，網頁版body背景
+CARD_BG = "#FFFFFF"     # 卡片背景
+CARD_BORDER = "#E5E7EB"  # tailwind gray-200，卡片邊框（沒有陰影可以用時的替代）
+TEXT_DARK = "#111827"   # tailwind gray-900，標題文字
+TEXT_GRAY = "#6B7280"   # tailwind gray-500，說明文字
+TEXT_MUTED = "#9CA3AF"  # tailwind gray-400，版本號這種最不重要的文字
+BLUE = "#2563EB"        # tailwind blue-600，按鈕/連結
+BLUE_HOVER = "#1D4ED8"  # tailwind blue-700，滑鼠移上去
+GREEN_BG = "#F0FDF4"    # tailwind green-50，「系統執行中」狀態列底色
+GREEN_BORDER = "#BBF7D0"  # tailwind green-200
+GREEN_TEXT = "#166534"  # tailwind green-800
+
+FONT_FAMILY = "Microsoft JhengHei"
+
+
+def _read_version() -> str:
+    try:
+        return VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        # 開發時直接跑`python launcher.py`不會有這個檔案（只有CI打包時才會產生，見
+        # build-windows.yml），這種情況就老實顯示「開發版」，不要假裝有版本號。
+        return "開發版"
 
 
 def _set_icon(root: tk.Tk) -> None:
@@ -74,6 +93,49 @@ def _center(root: tk.Tk, width: int, height: int) -> None:
     root.geometry(f"{width}x{height}+{x}+{y}")
 
 
+def _rounded_card(canvas: tk.Canvas, x1: int, y1: int, x2: int, y2: int, radius: int) -> None:
+    """畫一張跟網頁版卡片（bg-white shadow-md rounded-lg）same風格的圓角卡片。
+    tkinter沒有原生圓角矩形，用四個圓角的圓弧+中間補滿的矩形拼出來是常見做法；
+    先畫一層極淺灰色、往右下偏移幾個像素當「陰影」，弱化網頁版shadow-md的效果。
+    """
+    shadow_offset = 3
+    for dx, dy, fill in ((shadow_offset, shadow_offset, "#EEF0F3"), (0, 0, CARD_BG)):
+        ax1, ay1, ax2, ay2 = x1 + dx, y1 + dy, x2 + dx, y2 + dy
+        # 這幾片矩形/圓弧只是把圓角卡片的「內部填色」拼起來，outline留空——邊框只在最後
+        # 用create_line沿著卡片真正的外緣描一圈，不然這些拼接矩形自己的outline會在
+        # 卡片內部畫出一堆多餘的接縫線。
+        canvas.create_rectangle(ax1 + radius, ay1, ax2 - radius, ay2, fill=fill, outline="")
+        canvas.create_rectangle(ax1, ay1 + radius, ax2, ay2 - radius, fill=fill, outline="")
+        for cx, cy, start in (
+            (ax1 + radius, ay1 + radius, 90), (ax2 - radius, ay1 + radius, 0),
+            (ax1 + radius, ay2 - radius, 180), (ax2 - radius, ay2 - radius, 270),
+        ):
+            canvas.create_arc(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                start=start, extent=90, fill=fill, outline="", style="pieslice",
+            )
+        if fill == CARD_BG:
+            canvas.create_line(ax1 + radius, ay1, ax2 - radius, ay1, fill=CARD_BORDER)
+            canvas.create_line(ax1 + radius, ay2, ax2 - radius, ay2, fill=CARD_BORDER)
+            canvas.create_line(ax1, ay1 + radius, ax1, ay2 - radius, fill=CARD_BORDER)
+            canvas.create_line(ax2, ay1 + radius, ax2, ay2 - radius, fill=CARD_BORDER)
+
+
+def _hoverable_button(parent, text, command):
+    """跟網頁版按鈕（bg-blue-600 hover:bg-blue-700）同樣的滑鼠移上去變色效果——
+    tkinter的activebackground只有「按著不放」才會生效，滑鼠單純移過去不會變色，
+    要另外綁Enter/Leave事件才能做出網頁版那種hover效果。
+    """
+    btn = tk.Label(
+        parent, text=text, font=(FONT_FAMILY, 10, "bold"), bg=BLUE, fg="white",
+        padx=16, pady=8, cursor="hand2",
+    )
+    btn.bind("<Enter>", lambda _e: btn.configure(bg=BLUE_HOVER))
+    btn.bind("<Leave>", lambda _e: btn.configure(bg=BLUE))
+    btn.bind("<Button-1>", lambda _e: command())
+    return btn
+
+
 def _fatal_error(exc: Exception) -> None:
     # 打包成 --noconsole 之後沒有黑色視窗可以看錯誤訊息，啟動失敗（通常是資料檔案沒打包對、
     # 或路徑算錯）預設會整個「安靜地」關掉，使用者只會覺得「點了沒反應」，完全沒有線索能回報
@@ -83,7 +145,8 @@ def _fatal_error(exc: Exception) -> None:
     root.withdraw()
     messagebox.showerror(
         "化材系畢業學分檢核系統 - 啟動失敗",
-        "系統啟動時發生錯誤，請把下面的錯誤訊息截圖回報：\n\n" + "".join(traceback.format_exception(exc)),
+        f"系統啟動時發生錯誤（版本 {_read_version()}），請把下面的錯誤訊息截圖回報：\n\n"
+        + "".join(traceback.format_exception(exc)),
     )
 
 
@@ -124,61 +187,65 @@ def main() -> None:
 
     webbrowser.open(URL)
 
+    WIDTH, HEIGHT = 480, 380
     root = tk.Tk()
     root.title("化材系畢業學分檢核系統")
-    root.configure(bg=BG)
+    root.configure(bg=PAGE_BG)
     root.resizable(False, False)
     _set_icon(root)
-    _center(root, 440, 280)
+    _center(root, WIDTH, HEIGHT)
 
-    # 頂部品牌色橫幅，呼應網頁版導覽列的藍色（bg-blue-600），讓執行檔的小視窗跟瀏覽器裡的
-    # 畫面一眼看出是同一套系統，不是隨便一個Tk預設灰色視窗。
-    header = tk.Frame(root, bg=BLUE, height=64)
-    header.pack(fill="x")
-    header.pack_propagate(False)
-    tk.Label(
-        header, text="🎓 化材系畢業學分檢核系統", font=("Microsoft JhengHei", 13, "bold"),
-        bg=BLUE, fg="white",
-    ).pack(expand=True)
+    # 整個視窗其實是一張Canvas：網頁版「灰色頁面上放一張白色卡片」（bg-gray-50搭配
+    # bg-white shadow-md rounded-lg）這種圓角+陰影的效果，tkinter原生widget疊層做不出來，
+    # 只能整張畫在canvas上，卡片裡的文字/按鈕再疊在上面。
+    canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg=PAGE_BG, highlightthickness=0)
+    canvas.pack(fill="both", expand=True)
+    margin = 24
+    _rounded_card(canvas, margin, margin, WIDTH - margin, HEIGHT - margin, radius=14)
 
-    body = tk.Frame(root, bg=BG)
-    body.pack(fill="both", expand=True, padx=28, pady=(20, 16))
-
-    status_row = tk.Frame(body, bg=BG)
-    status_row.pack(anchor="w")
-    dot = tk.Canvas(status_row, width=10, height=10, bg=BG, highlightthickness=0)
-    dot.create_oval(1, 1, 9, 9, fill=GREEN, outline="")
-    dot.pack(side="left", padx=(0, 6))
-    tk.Label(status_row, text="系統執行中", font=("Microsoft JhengHei", 12, "bold"), bg=BG, fg="#111827").pack(side="left")
-
-    # 網址做成看起來像連結的樣子、點下去直接開瀏覽器——使用者不用自己選取文字複製貼上，
-    # 瀏覽器分頁不小心關掉時，這裡就是唯一能再打開畫面的地方。
-    link = tk.Label(
-        body, text=URL, font=("Microsoft JhengHei", 10, "underline"), bg=BG, fg=BLUE, cursor="hand2",
+    card = tk.Frame(canvas, bg=CARD_BG)
+    inner_pad = 32
+    canvas.create_window(
+        WIDTH / 2, HEIGHT / 2, window=card,
+        width=WIDTH - margin * 2 - inner_pad, height=HEIGHT - margin * 2 - inner_pad,
     )
-    link.pack(anchor="w", pady=(6, 0))
+
+    tk.Label(
+        card, text="🎓 化材系畢業學分檢核系統", font=(FONT_FAMILY, 14, "bold"), bg=CARD_BG, fg=TEXT_DARK,
+    ).pack(pady=(2, 16))
+
+    # 「系統執行中」狀態列，直接照抄result.html裡「已符合畢業資格」那個綠色狀態列的視覺
+    # 語言（✅ + 綠字 + 淺綠底 + 綠框），讓使用者一眼就認出這跟網頁版是同一套視覺系統。
+    status = tk.Frame(card, bg=GREEN_BG, highlightbackground=GREEN_BORDER, highlightthickness=1)
+    status.pack(fill="x")
+    tk.Label(
+        status, text="✅  系統執行中", font=(FONT_FAMILY, 11, "bold"), bg=GREEN_BG, fg=GREEN_TEXT,
+    ).pack(padx=14, pady=10, anchor="w")
+
+    link = tk.Label(
+        card, text=URL, font=(FONT_FAMILY, 10, "underline"), bg=CARD_BG, fg=BLUE, cursor="hand2",
+    )
+    link.pack(anchor="w", pady=(14, 0))
     link.bind("<Button-1>", lambda _e: webbrowser.open(URL))
 
-    tk.Frame(body, bg="#E5E7EB", height=1).pack(fill="x", pady=14)
+    tk.Frame(card, bg=CARD_BORDER, height=1).pack(fill="x", pady=14)
 
     tk.Label(
-        body,
+        card,
         text="這個小視窗代表系統正在背景執行，關閉視窗會一併停止系統。\n瀏覽器分頁可以直接關掉沒關係，要再打開就回來點上面的網址。",
-        font=("Microsoft JhengHei", 9), bg=BG, fg=GRAY_TEXT, wraplength=380, justify="left",
+        font=(FONT_FAMILY, 9), bg=CARD_BG, fg=TEXT_GRAY, wraplength=WIDTH - margin * 2 - 60, justify="left",
     ).pack(anchor="w")
 
     def on_close() -> None:
         server.should_exit = True
         root.destroy()
 
-    footer = tk.Frame(root, bg=BG)
-    footer.pack(fill="x", padx=28, pady=(0, 20))
-    stop_btn = tk.Button(
-        footer, text="結束系統", command=on_close, font=("Microsoft JhengHei", 10, "bold"),
-        bg=BLUE, fg="white", activebackground=BLUE_DARK, activeforeground="white",
-        relief="flat", padx=16, pady=6, cursor="hand2",
-    )
-    stop_btn.pack(anchor="e")
+    bottom_row = tk.Frame(card, bg=CARD_BG)
+    bottom_row.pack(fill="x", side="bottom", pady=(14, 0))
+    tk.Label(
+        bottom_row, text=f"版本 {_read_version()}", font=(FONT_FAMILY, 8), bg=CARD_BG, fg=TEXT_MUTED,
+    ).pack(side="left")
+    _hoverable_button(bottom_row, "結束系統", on_close).pack(side="right")
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.mainloop()

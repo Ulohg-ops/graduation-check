@@ -35,6 +35,13 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: 寫入版本號
+        # 這個專案沒有手動維護的版本號，每次push都直接重新打包覆蓋同一份「latest」release，
+        # 所以能唯一標示「使用者手上這個exe到底是哪次改動打包出來的」的只有commit hash——
+        # 寫成檔案跟著一起打包，執行視窗裡顯示出來，之後有人回報問題時才問得出「是不是最新版」。
+        shell: bash
+        run: echo "${GITHUB_SHA:0:7} (build $(date -u +%Y-%m-%d))" > version.txt
+
       - name: 打包成執行檔
         run: >
           pyinstaller --noconsole --onedir --name GraduationCheck
@@ -44,6 +51,7 @@ jobs:
           --add-data "static;static"
           --add-data "rules.yaml;."
           --add-data "graduate_rules.yaml;."
+          --add-data "version.txt;."
           --collect-all uvicorn
           --collect-all pdfplumber
           launcher.py
