@@ -1,6 +1,7 @@
 import copy
 import io
 import re
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,7 +12,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-BASE_DIR = Path(__file__).resolve().parent
+# 一般用 `python -m uvicorn main:app`／啟動.bat 執行時，__file__ 就在專案資料夾裡，資料放旁邊
+# 沒問題。但打包成 PyInstaller 執行檔後，__file__ 會指向解壓縮用的暫存資料夾（每次執行都不一樣、
+# 關閉就消失），rules.yaml 存在那裡等於每次重開都打回原廠設定。sys.frozen 是 PyInstaller
+# 打包後才會有的旗標，這時候要改成用 sys.executable（.exe本身實際的位置）當基準，資料才會
+# 跟著.exe放在同一個資料夾、真的能持久保存、也才是使用者「查看檔案」時看得到的地方。
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
 RULES_FILE = BASE_DIR / "rules.yaml"
 # 「匯入規則」覆蓋前的備份，只保留最近一次匯入前的版本（不是每次匯入都留一份新檔案），
 # 匯錯檔案的話可以手動把這個複製回 rules.yaml 救回來。

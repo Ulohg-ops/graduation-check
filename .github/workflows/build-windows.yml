@@ -1,0 +1,64 @@
+name: 打包 Windows 執行檔
+
+# 推到 main、且改到會影響程式本身或畫面的檔案時才重新打包（改樣本PDF、Readme這種不會觸發），
+# 也保留手動觸發（workflow_dispatch）給想臨時重打一次的情況。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "main.py"
+      - "launcher.py"
+      - "requirements.txt"
+      - "templates/**"
+      - "static/**"
+      - "rules.yaml"
+      - "graduate_rules.yaml"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安裝套件
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: 打包成執行檔
+        run: >
+          pyinstaller --noconsole --onedir --name GraduationCheck
+          --contents-directory .
+          --add-data "templates;templates"
+          --add-data "static;static"
+          --add-data "rules.yaml;."
+          --add-data "graduate_rules.yaml;."
+          --collect-all uvicorn
+          --collect-all pdfplumber
+          launcher.py
+
+      - name: 壓縮成zip
+        run: Compress-Archive -Path dist/GraduationCheck/* -DestinationPath graduation-check-windows.zip
+
+      - name: 更新「最新版本」的Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新版（自動打包）
+          body: |
+            自動打包的 Windows 執行檔，每次程式更新後會自動重新產生、覆蓋這個連結。
+
+            下載 `graduation-check-windows.zip`，解壓縮後雙擊資料夾裡的
+            `GraduationCheck.exe` 即可使用，不需要另外安裝 Python。
+          files: graduation-check-windows.zip
+          make_latest: true
