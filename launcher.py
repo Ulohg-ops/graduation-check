@@ -10,14 +10,24 @@
    --noconsole 之後，使用者根本沒有視窗可以關閉伺服器，只能開工作管理員硬砍）。
 2. 自動開瀏覽器，使用者不用自己打網址。
 3. 偵測 port 已經被佔用（使用者手滑點兩次、或系統其實已經在背景跑）時，不重複啟動，直接開瀏覽器。
+4. 補上sys.stdout/stderr：PyInstaller打包成--noconsole後沒有主控台視窗，Windows上
+   sys.stdout/sys.stderr會直接是None（不是被重導向、是真的None）——uvicorn預設的logging
+   設定檔會呼叫sys.stdout.isatty()判斷要不要上色，None沒有這個方法就直接炸掉整個程式
+   啟動失敗。要在uvicorn的任何程式碼執行「之前」補上，不然設定logging那一步就先掛了。
 """
 import socket
+import sys
 import threading
 import time
 import traceback
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox
+
+if sys.stdout is None:
+    sys.stdout = open("nul" if sys.platform == "win32" else "/dev/null", "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open("nul" if sys.platform == "win32" else "/dev/null", "w", encoding="utf-8")
 
 HOST = "127.0.0.1"
 PORT = 8000
