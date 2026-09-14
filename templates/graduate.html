@@ -17,6 +17,14 @@
       </h1>
       <form action="/graduate/check" method="post" enctype="multipart/form-data" class="space-y-4">
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
+          <select name="year" class="w-full border rounded-md p-2">
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">學制</label>
           <select name="track" class="w-full border rounded-md p-2">
             {% for key, track in tracks.items() %}

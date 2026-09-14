@@ -1,901 +1,5490 @@
-passing_score: 60.0
-tracks:
-  master:
-    label: 碩士班
-    min_total_credits: 24.0
-    pool_min_pass: 3
-    require_domain_each: true
-    seminar_min_semesters: 2
-    topics_min_semesters: 2
-    industry_topics_min_semesters: 0
-    courses:
-    - code: CH6007
-      name: 高等輸送現象
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8027
-      name: 高等化學反應工程
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8022
-      name: 高等化工熱力學
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH7007
-      name: 高等材料物理學
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7009
-      name: 材料分析與鑑定
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7008
-      name: 軟質材料
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH6032
-      name: 觸媒Ｉ
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH6038
-      name: 近代工程物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH6040
-      name: 工程統計學
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH7012
-      name: 科技論文寫作
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8031
-      name: 高等高分子物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8034
-      name: 沸石原理
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8041
-      name: 生物化學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8055
-      name: 分子模擬
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8057
-      name: 吸附現象
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8059
-      name: 生化分離工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8061
-      name: 三相反應器
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8065
-      name: 膠體與界面科學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8071
-      name: 電子材料科學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8076
-      name: 高等應用電化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8081
-      name: 生物高分子
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8087
-      name: 物理生物化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8090
-      name: 粉末技術工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8094
-      name: 電路板製程與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8096
-      name: 固態擴散
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8097
-      name: 生物啟發材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8102
-      name: 生醫材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8106
-      name: 生物醫學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8108
-      name: X光/中子散射及反射物理原理與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8110
-      name: 有機化學特論
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8111
-      name: 有機金屬化學與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8113
-      name: 半導體工程
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8116
-      name: 有機化學反應與機制
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8117
-      name: 奈米薄膜製程與分析特論
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8119
-      name: 半導體光電化學系統
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8120
-      name: 微生物應用工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8123
-      name: 鋰電池材料與元件
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8126
-      name: 鋰離子電池技術與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8128
-      name: 材料相變化學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8130
-      name: 化工製程設計實務
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8132
-      name: 精密電子化學品製程設計及應用
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8134
-      name: 機器學習與數位決策於化工過程
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-  phd:
-    label: 博士班
-    min_total_credits: 18.0
-    pool_min_pass: 4
-    require_domain_each: false
-    seminar_min_semesters: 2
-    topics_min_semesters: 4
-    industry_topics_min_semesters: 0
-    courses:
-    - code: CH6007
-      name: 高等輸送現象
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8027
-      name: 高等化學反應工程
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8022
-      name: 高等化工熱力學
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH7007
-      name: 高等材料物理學
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7009
-      name: 材料分析與鑑定
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7008
-      name: 軟質材料
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH6032
-      name: 觸媒Ｉ
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH6038
-      name: 近代工程物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH6040
-      name: 工程統計學
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH7012
-      name: 科技論文寫作
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8031
-      name: 高等高分子物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8034
-      name: 沸石原理
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8041
-      name: 生物化學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8055
-      name: 分子模擬
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8057
-      name: 吸附現象
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8059
-      name: 生化分離工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8061
-      name: 三相反應器
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8065
-      name: 膠體與界面科學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8071
-      name: 電子材料科學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8076
-      name: 高等應用電化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8081
-      name: 生物高分子
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8087
-      name: 物理生物化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8090
-      name: 粉末技術工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8094
-      name: 電路板製程與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8096
-      name: 固態擴散
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8097
-      name: 生物啟發材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8102
-      name: 生醫材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8106
-      name: 生物醫學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8108
-      name: X光/中子散射及反射物理原理與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8110
-      name: 有機化學特論
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8111
-      name: 有機金屬化學與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8113
-      name: 半導體工程
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8116
-      name: 有機化學反應與機制
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8117
-      name: 奈米薄膜製程與分析特論
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8119
-      name: 半導體光電化學系統
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8120
-      name: 微生物應用工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8123
-      name: 鋰電池材料與元件
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8126
-      name: 鋰離子電池技術與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8128
-      name: 材料相變化學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8130
-      name: 化工製程設計實務
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8132
-      name: 精密電子化學品製程設計及應用
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8134
-      name: 機器學習與數位決策於化工過程
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-  phd_engineering:
-    label: 工學博士班
-    min_total_credits: 18
-    pool_min_pass: 4
-    require_domain_each: false
-    seminar_min_semesters: 2
-    topics_min_semesters: 4
-    industry_topics_min_semesters: 4
-    courses:
-    - code: CH6007
-      name: 高等輸送現象
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8027
-      name: 高等化學反應工程
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8022
-      name: 高等化工熱力學
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH7007
-      name: 高等材料物理學
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7009
-      name: 材料分析與鑑定
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7008
-      name: 軟質材料
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH6032
-      name: 觸媒Ｉ
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH6038
-      name: 近代工程物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH6040
-      name: 工程統計學
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH7012
-      name: 科技論文寫作
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8031
-      name: 高等高分子物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8034
-      name: 沸石原理
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8041
-      name: 生物化學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8055
-      name: 分子模擬
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8057
-      name: 吸附現象
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8059
-      name: 生化分離工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8061
-      name: 三相反應器
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8065
-      name: 膠體與界面科學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8071
-      name: 電子材料科學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8076
-      name: 高等應用電化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8081
-      name: 生物高分子
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8087
-      name: 物理生物化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8090
-      name: 粉末技術工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8094
-      name: 電路板製程與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8096
-      name: 固態擴散
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8097
-      name: 生物啟發材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8102
-      name: 生醫材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8106
-      name: 生物醫學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8108
-      name: X光/中子散射及反射物理原理與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8110
-      name: 有機化學特論
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8111
-      name: 有機金屬化學與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8113
-      name: 半導體工程
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8116
-      name: 有機化學反應與機制
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8117
-      name: 奈米薄膜製程與分析特論
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8119
-      name: 半導體光電化學系統
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8120
-      name: 微生物應用工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8123
-      name: 鋰電池材料與元件
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8126
-      name: 鋰離子電池技術與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8128
-      name: 材料相變化學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8130
-      name: 化工製程設計實務
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8132
-      name: 精密電子化學品製程設計及應用
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8134
-      name: 機器學習與數位決策於化工過程
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-  direct_phd:
-    label: 逕讀博士學位（逕博）
-    min_total_credits: 34
-    pool_min_pass: 4
-    require_domain_each: false
-    seminar_min_semesters: 2
-    topics_min_semesters: 4
-    industry_topics_min_semesters: 0
-    courses:
-    - code: CH6007
-      name: 高等輸送現象
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8027
-      name: 高等化學反應工程
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH8022
-      name: 高等化工熱力學
-      domains:
-      - 化工
-      in_pool: true
-    - code: CH7007
-      name: 高等材料物理學
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7009
-      name: 材料分析與鑑定
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH7008
-      name: 軟質材料
-      domains:
-      - 材料
-      in_pool: true
-    - code: CH6032
-      name: 觸媒Ｉ
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH6038
-      name: 近代工程物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH6040
-      name: 工程統計學
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH7012
-      name: 科技論文寫作
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8031
-      name: 高等高分子物理
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8034
-      name: 沸石原理
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8041
-      name: 生物化學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8055
-      name: 分子模擬
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8057
-      name: 吸附現象
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8059
-      name: 生化分離工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8061
-      name: 三相反應器
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8065
-      name: 膠體與界面科學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8071
-      name: 電子材料科學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8076
-      name: 高等應用電化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8081
-      name: 生物高分子
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8087
-      name: 物理生物化學
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8090
-      name: 粉末技術工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8094
-      name: 電路板製程與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8096
-      name: 固態擴散
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8097
-      name: 生物啟發材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8102
-      name: 生醫材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8106
-      name: 生物醫學工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8108
-      name: X光/中子散射及反射物理原理與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8110
-      name: 有機化學特論
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8111
-      name: 有機金屬化學與應用
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8113
-      name: 半導體工程
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8116
-      name: 有機化學反應與機制
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8117
-      name: 奈米薄膜製程與分析特論
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8119
-      name: 半導體光電化學系統
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8120
-      name: 微生物應用工程
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8123
-      name: 鋰電池材料與元件
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8126
-      name: 鋰離子電池技術與材料
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8128
-      name: 材料相變化學
-      domains:
-      - 材料
-      in_pool: false
-    - code: CH8130
-      name: 化工製程設計實務
-      domains:
-      - 化工
-      in_pool: false
-    - code: CH8132
-      name: 精密電子化學品製程設計及應用
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-    - code: CH8134
-      name: 機器學習與數位決策於化工過程
-      domains:
-      - 化工
-      - 材料
-      in_pool: false
-manual_review_items:
-- 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
-- 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
-- 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
-- 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
-- 學位論文考試（口試）通過
-- 工學博士班：學位考試委員須至少2位產業專家
+'113':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+'112':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+'111':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+'110':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+'114':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+'115':
+  passing_score: 60.0
+  tracks:
+    master:
+      label: 碩士班
+      min_total_credits: 24.0
+      pool_min_pass: 3
+      require_domain_each: true
+      seminar_min_semesters: 2
+      topics_min_semesters: 2
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd:
+      label: 博士班
+      min_total_credits: 18.0
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    phd_engineering:
+      label: 工學博士班
+      min_total_credits: 18
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 4
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（工學博士班委員須至少1位產業專家）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者（工學博士班在學期間取得專利得計點一次，點數2點）
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過（工學博士班：學位考試委員須至少2位產業專家）
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+    direct_phd:
+      label: 逕讀博士學位（逕博）
+      min_total_credits: 34
+      pool_min_pass: 4
+      require_domain_each: false
+      seminar_min_semesters: 2
+      topics_min_semesters: 4
+      industry_topics_min_semesters: 0
+      manual_review_items:
+      - 資格考第一階段：六門課程池成績須達該課程同學期修課人數前三分之二（逕修讀博士學位學生於碩(學)士班期間修習之成績得列入計算；無法從成績單判斷名次，需人工確認）
+      - 資格考第二階段：「研究計畫」口試（委員至少3人）
+      - 博士學位候選人資格：博士論文研究成果發表論文總點數達3點，且至少一篇為第一作者
+      - 英文能力：參加國際會議口頭報告，或通過全民英檢中高級／多益750分以上（101學年度起入學新生適用）
+      - 學位論文考試（口試）通過
+      courses:
+      - code: CH6007
+        name: 高等輸送現象
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8027
+        name: 高等化學反應工程
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH8022
+        name: 高等化工熱力學
+        domains:
+        - 化工
+        in_pool: true
+      - code: CH7007
+        name: 高等材料物理學
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7009
+        name: 材料分析與鑑定
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH7008
+        name: 軟質材料
+        domains:
+        - 材料
+        in_pool: true
+      - code: CH6032
+        name: 觸媒Ｉ
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH6038
+        name: 近代工程物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH6040
+        name: 工程統計學
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH7012
+        name: 科技論文寫作
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8031
+        name: 高等高分子物理
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8034
+        name: 沸石原理
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8041
+        name: 生物化學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8055
+        name: 分子模擬
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8057
+        name: 吸附現象
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8059
+        name: 生化分離工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8061
+        name: 三相反應器
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8065
+        name: 膠體與界面科學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8071
+        name: 電子材料科學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8076
+        name: 高等應用電化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8081
+        name: 生物高分子
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8087
+        name: 物理生物化學
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8090
+        name: 粉末技術工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8094
+        name: 電路板製程與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8096
+        name: 固態擴散
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8097
+        name: 生物啟發材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8102
+        name: 生醫材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8106
+        name: 生物醫學工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8108
+        name: X光/中子散射及反射物理原理與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8110
+        name: 有機化學特論
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8111
+        name: 有機金屬化學與應用
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8113
+        name: 半導體工程
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8116
+        name: 有機化學反應與機制
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8117
+        name: 奈米薄膜製程與分析特論
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8119
+        name: 半導體光電化學系統
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8120
+        name: 微生物應用工程
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8123
+        name: 鋰電池材料與元件
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8126
+        name: 鋰離子電池技術與材料
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8128
+        name: 材料相變化學
+        domains:
+        - 材料
+        in_pool: false
+      - code: CH8130
+        name: 化工製程設計實務
+        domains:
+        - 化工
+        in_pool: false
+      - code: CH8132
+        name: 精密電子化學品製程設計及應用
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
+      - code: CH8134
+        name: 機器學習與數位決策於化工過程
+        domains:
+        - 化工
+        - 材料
+        in_pool: false
