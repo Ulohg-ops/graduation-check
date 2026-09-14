@@ -16,6 +16,16 @@
       btn.classList.toggle('text-gray-500', !active);
     });
     document.getElementById('year-switch-tab').value = tab;
+
+    // /admin/programs 有兩份互不相干的學年度清單（輔系／雙主修用rules.yaml、碩博用
+    // graduate_rules.yaml），同時兩個都顯示容易讓人誤會選了哪個學年度會影響到哪些分頁籤——
+    // 切到哪個分頁籤，就只顯示那個分頁籤真正在用的學年度選單。admin.html沒有這兩個
+    // data-year-group元素，這段對它沒有影響。
+    const isSecondaryTab = tab === 'minor' || tab === 'double_major';
+    document.querySelectorAll('[data-year-group]').forEach((el) => {
+      const isSecondaryGroup = el.dataset.yearGroup === 'minor_double';
+      el.hidden = isSecondaryGroup !== isSecondaryTab;
+    });
   }
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => activateTab(btn.dataset.tabBtn));

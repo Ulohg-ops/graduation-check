@@ -1,17 +1,49 @@
-{# 碩士班/博士班/工學博士班/逕博四個分頁籤共用同一份設定：及格分數（成績單解析用）跟需人工
-   確認項目（結果頁提醒文字）。這兩項不像課程池/門檻那樣拆到各學制獨立維護，因為它們本來就是
-   四個學制共用的同一份東西，拆開反而要維護四份重複資料。用current_track_key記得存檔後
-   要跳轉回目前這個分頁籤，不會因為存檔就跳去別的學制分頁。 #}
+{# 碩士班/博士班/工學博士班/逕博四個分頁籤共用這塊：學年度管理、及格分數（成績單解析用，四個學制
+   共用，但跟輔系/雙主修一樣依入學學年度分開設定）。需人工確認項目（結果頁提醒文字）則是各學制
+   獨立一份——碩士班沒有資格考、SCI論文點數、英文能力這些博士班才有的畢業條件，工學博士班的口試
+   委員產業專家規定也不適用其他學制。用current_track_key記得存檔後要跳轉回目前這個分頁籤，
+   grad_year記得存檔後要留在目前這個學年度，不會因為存檔就跳去別的學制分頁或別的學年度。 #}
 <div class="mb-6 p-4 bg-gray-50 rounded-md border border-gray-200">
-  <p class="text-xs text-gray-500 mb-3">以下兩項是四個學制共用的設定，在任何一個學制分頁籤修改都會套用到全部。</p>
+  <div class="mb-4">
+    <p class="text-xs font-medium text-gray-500 mb-2">學年度（碩士班／博士班／工學博士班／逕博共用同一份學年度清單）</p>
+    <div class="flex flex-wrap gap-3">
+      <form method="post" action="/admin/graduate/year/rename" class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1">
+        <input type="hidden" name="old_year" value="{{ grad_year }}" />
+        <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
+        <span class="text-xs text-gray-500 whitespace-nowrap">改名 {{ grad_year }} →</span>
+        <input type="text" name="new_year" value="{{ grad_year }}" class="border rounded-md p-1 text-xs w-16" />
+        <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">儲存</button>
+      </form>
+      <form method="post" action="/admin/graduate/year/delete" class="bg-white border rounded-md px-2 py-1 flex items-center"
+            onsubmit="return confirm('刪除 {{ grad_year }} 學年度？這個學年度四個學制的所有規則都會一起刪掉，無法復原。')">
+        <input type="hidden" name="year" value="{{ grad_year }}" />
+        <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
+        <button type="submit" class="text-xs text-red-600 hover:underline whitespace-nowrap">刪除 {{ grad_year }} 學年度</button>
+      </form>
+      <form method="post" action="/admin/graduate/year/add" class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1 flex-wrap">
+        <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
+        <span class="text-xs text-gray-500 whitespace-nowrap">新增學年度</span>
+        <input type="text" name="year" required placeholder="例如 116" class="border rounded-md p-1 text-xs w-16" />
+        <select name="copy_from" class="border rounded-md p-1 text-xs">
+          <option value="">（空白開始）</option>
+          {% for y in grad_years %}
+          <option value="{{ y }}" {% if y == grad_year %}selected{% endif %}>複製自 {{ y }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">建立</button>
+      </form>
+    </div>
+  </div>
 
   <div class="mb-4">
     <h3 class="text-xs font-semibold text-gray-600 mb-1">及格分數</h3>
     <p class="text-xs text-gray-500 mb-2">
       碩博成績單（教務系統匯出）沒有「判定」欄，只有數字成績，系統用這個分數當及格門檻
-      （文字成績如「抵免」「一般課程通過」一律視為通過，不受這個數字影響）。
+      （文字成績如「抵免」「一般課程通過」一律視為通過，不受這個數字影響）。此設定四個學制共用，
+      在任何一個學制分頁籤修改都會套用到 {{ grad_year }} 學年度全部。
     </p>
     <form method="post" action="/admin/graduate/passing_score" class="flex items-end gap-2">
+      <input type="hidden" name="year" value="{{ grad_year }}" />
       <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
       <div>
         <label class="block text-xs text-gray-500">及格分數</label>
@@ -25,17 +57,19 @@
   </div>
 
   <div>
-    <h3 class="text-xs font-semibold text-gray-600 mb-1">需人工確認項目</h3>
+    <h3 class="text-xs font-semibold text-gray-600 mb-1">{{ track.label }}需人工確認項目</h3>
     <p class="text-xs text-gray-500 mb-2">
       資格考排名、論文口試、SCI論文點數、英文能力這類無法從成績單自動判斷的畢業條件，
-      會原文列在結果頁提醒使用者，不影響系統的通過／不通過判定。
+      會原文列在結果頁提醒使用者，不影響系統的通過／不通過判定。這份清單只屬於
+      {{ grad_year }} 學年度的{{ track.label }}，不會影響其他學制或其他學年度。
     </p>
-    {% for i, item in grad_manual_review_items %}
+    {% for i, item in track.manual_review_items %}
     <div class="flex items-center gap-2 mb-2">
       <span class="flex-1 text-sm text-gray-700 bg-white border rounded-md px-2 py-1">{{ item }}</span>
       <form method="post" action="/admin/graduate/manual_review/delete">
+        <input type="hidden" name="year" value="{{ grad_year }}" />
+        <input type="hidden" name="track" value="{{ current_track_key }}" />
         <input type="hidden" name="index" value="{{ i }}" />
-        <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
         <button type="submit" class="text-sm text-red-600 hover:underline whitespace-nowrap">刪除</button>
       </form>
     </div>
@@ -43,7 +77,8 @@
     <p class="text-sm text-gray-400 mb-3">尚未設定任何提醒項目。</p>
     {% endfor %}
     <form method="post" action="/admin/graduate/manual_review/add" class="flex items-end gap-2">
-      <input type="hidden" name="redirect_tab" value="{{ current_track_key }}" />
+      <input type="hidden" name="year" value="{{ grad_year }}" />
+      <input type="hidden" name="track" value="{{ current_track_key }}" />
       <div class="flex-1">
         <label class="block text-xs text-gray-500">新增提醒文字</label>
         <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />

@@ -35,14 +35,24 @@
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == key else 'text-gray-500' }}">{{ track.label }}</button>
         {% endfor %}
       </nav>
-      <form method="get" action="/admin/programs" class="flex items-center gap-2">
+      <form method="get" action="/admin/programs" class="flex items-center gap-2 flex-wrap">
         <input type="hidden" name="tab" id="year-switch-tab" value="{{ active_tab }}" />
-        <label class="text-sm text-gray-600">學年度（輔系／雙主修用）</label>
-        <select name="year" onchange="this.form.submit()" class="border rounded-md p-1 text-sm">
-          {% for y in years %}
-          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
+        <span data-year-group="minor_double" class="flex items-center gap-2" {% if active_tab not in ('minor', 'double_major') %}hidden{% endif %}>
+          <label class="text-sm text-gray-600">學年度</label>
+          <select name="year" onchange="this.form.submit()" class="border rounded-md p-1 text-sm">
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </span>
+        <span data-year-group="grad" class="flex items-center gap-2" {% if active_tab not in grad_tracks %}hidden{% endif %}>
+          <label class="text-sm text-gray-600">學年度</label>
+          <select name="grad_year" onchange="this.form.submit()" class="border rounded-md p-1 text-sm">
+            {% for y in grad_years %}
+            <option value="{{ y }}" {% if y == grad_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </span>
       </form>
     </div>
 
@@ -716,10 +726,10 @@
     {% for key, track in grad_tracks.items() %}
     <div data-tab-panel="{{ key }}" {% if active_tab != key %}hidden{% endif %}>
       <p class="text-xs text-gray-500 mb-4">
-        碩博的畢業門檻不是照入學學年度分開訂的（修業辦法本身很少修訂），這裡設定的規則跟上面幾個
-        分頁籤（依學年度區分）完全獨立，改了立刻對所有「{{ track.label }}」的碩博生生效。四個
-        學制（碩士班／博士班／工學博士班／逕博）的門檻數字跟課程池／領域對照表都各自獨立，改這裡
-        不會影響其他學制。實際檢核頁在 <a href="/graduate" class="text-blue-600 hover:underline">/graduate</a>。
+        碩博規則存在獨立的graduate_rules.yaml，跟上面幾個分頁籤（輔系／雙主修，存在rules.yaml）
+        是兩份不相干的學年度清單，用上方「學年度（碩士班／博士班／工學博士班／逕博用）」切換。
+        四個學制（碩士班／博士班／工學博士班／逕博）的門檻數字跟課程池／領域對照表都各自獨立，
+        改一個學制不會影響其他學制。實際檢核頁在 <a href="/graduate" class="text-blue-600 hover:underline">/graduate</a>。
       </p>
 
       {% set current_track_key = key %}
@@ -728,6 +738,7 @@
       <div class="mb-8">
         <h2 class="text-sm font-semibold text-gray-700 mb-2">{{ track.label }}門檻</h2>
         <form method="post" action="/admin/graduate/track/update" class="flex items-end gap-3 flex-wrap p-3 bg-gray-50 rounded-md">
+          <input type="hidden" name="year" value="{{ grad_year }}" />
           <input type="hidden" name="track" value="{{ key }}" />
           <div>
             <label class="block text-xs text-gray-500">總學分</label>
@@ -770,6 +781,7 @@
             + 新增課程
           </summary>
           <form method="post" action="/admin/graduate/course/add" class="flex items-end gap-2 flex-wrap p-3 bg-gray-50 rounded-b-md">
+            <input type="hidden" name="year" value="{{ grad_year }}" />
             <input type="hidden" name="track" value="{{ key }}" />
             <div>
               <label class="block text-xs text-gray-500">課號</label>
@@ -805,6 +817,7 @@
               {% if key == edit_grad_track and c.index == edit_grad_course_index %}
               <td colspan="6" class="py-2">
                 <form method="post" action="/admin/graduate/course/update" class="flex items-center gap-2 flex-wrap">
+                  <input type="hidden" name="year" value="{{ grad_year }}" />
                   <input type="hidden" name="track" value="{{ key }}" />
                   <input type="hidden" name="index" value="{{ c.index }}" />
                   <input type="text" name="code" value="{{ c.code }}" required class="border rounded-md p-1 text-sm w-28" />
@@ -813,7 +826,7 @@
                   <label class="flex items-center gap-1 text-sm text-gray-600"><input type="checkbox" name="domain_material" {% if '材料' in c.domains %}checked{% endif %} /> 材料</label>
                   <label class="flex items-center gap-1 text-sm text-gray-600"><input type="checkbox" name="in_pool" {% if c.in_pool %}checked{% endif %} /> 課程池</label>
                   <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
-                  <a href="/admin/programs?tab={{ key }}#grad-{{ key }}-course-row-{{ c.index }}" class="text-sm text-gray-500 hover:underline">取消</a>
+                  <a href="/admin/programs?tab={{ key }}&grad_year={{ grad_year }}#grad-{{ key }}-course-row-{{ c.index }}" class="text-sm text-gray-500 hover:underline">取消</a>
                 </form>
               </td>
               {% else %}
@@ -823,8 +836,9 @@
               <td class="py-1 pr-2 text-center">{{ '✓' if '材料' in c.domains else '' }}</td>
               <td class="py-1 pr-2 text-center">{{ '✓' if c.in_pool else '' }}</td>
               <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
-                <a href="/admin/programs?tab={{ key }}&edit_grad_track={{ key }}&edit_grad_course={{ c.index }}#grad-{{ key }}-course-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
+                <a href="/admin/programs?tab={{ key }}&grad_year={{ grad_year }}&edit_grad_track={{ key }}&edit_grad_course={{ c.index }}#grad-{{ key }}-course-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
                 <form method="post" action="/admin/graduate/course/delete" class="inline">
+                  <input type="hidden" name="year" value="{{ grad_year }}" />
                   <input type="hidden" name="track" value="{{ key }}" />
                   <input type="hidden" name="index" value="{{ c.index }}" />
                   <button type="submit" class="text-red-600 hover:underline">刪除</button>
