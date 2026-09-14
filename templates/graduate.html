@@ -7,34 +7,32 @@
   <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
 </head>
 <body class="bg-gray-50 min-h-screen">
-  {% set program = program | default('main') %}
-  {% set action_label = {'main': '畢業', 'minor': '輔系', 'double_major': '雙主修'}[program] %}
+  {% set program = 'graduate' %}
   {% include "_program_nav.html" %}
 
   <div class="flex items-center justify-center p-8">
     <div class="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
       <h1 class="text-xl font-bold mb-6 text-center">
-        上傳成績單檢核{{ action_label }}資格
+        上傳成績單檢核碩／博士班資格
       </h1>
-      <form action="/check" method="post" enctype="multipart/form-data" class="space-y-4">
-        <input type="hidden" name="program" value="{{ program }}" />
+      <form action="/graduate/check" method="post" enctype="multipart/form-data" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
-          <select name="year" class="w-full border rounded-md p-2">
-            {% for y in years %}
-            <option value="{{ y }}">{{ y }}</option>
+          <label class="block text-sm font-medium text-gray-700 mb-1">學制</label>
+          <select name="track" class="w-full border rounded-md p-2">
+            {% for key, track in tracks.items() %}
+            <option value="{{ key }}">{{ track.label }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">上傳成績單 / 畢業審核紀錄表 (PDF，可一次選多個檔案)</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">上傳成績單 (PDF，教務系統下載的「學生個人成績一覽表」，可一次選多個檔案)</label>
           <input type="file" name="files" accept="application/pdf" multiple
                  class="w-full border rounded-md p-2 text-sm" />
           <p class="text-xs text-gray-400 mt-1">先不上傳也可以，會直接顯示預覽結果；一次上傳多個 PDF 會分開列出每個人的檢核結果</p>
         </div>
         <button type="submit"
                 class="w-full bg-blue-600 text-white font-medium py-2 rounded-md hover:bg-blue-700">
-          檢核{{ action_label }}資格
+          檢核資格
         </button>
       </form>
     </div>

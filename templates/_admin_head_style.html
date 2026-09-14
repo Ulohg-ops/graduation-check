@@ -1,0 +1,6 @@
+<style>
+  /* Tailwind 的 .flex/.block 等 utility class 跟原生 [hidden] 屬性特異度一樣，
+     疊在同一個元素上時，CSS cascade 順序會讓後載入的 .flex 贏過 [hidden]，
+     導致設定 el.hidden = true 卻沒有真的藏起來。這裡強制 [hidden] 永遠贏。 */
+  [hidden] { display: none !important; }
+</style>

@@ -5,3 +5,7 @@ __pycache__/
 .env
 .DS_Store
 rules.yaml.bak
+
+# 真實學生成績單（含姓名/學號/成績），repo 是公開的，絕對不能進版控
+碩博/
+畢業門檻/

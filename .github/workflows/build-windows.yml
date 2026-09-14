@@ -12,6 +12,7 @@ on:
       - "templates/**"
       - "static/**"
       - "rules.yaml"
+      - "graduate_rules.yaml"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch: {}
 
@@ -41,6 +42,7 @@ jobs:
           --add-data "templates;templates"
           --add-data "static;static"
           --add-data "rules.yaml;."
+          --add-data "graduate_rules.yaml;."
           --collect-all uvicorn
           --collect-all pdfplumber
           launcher.py
