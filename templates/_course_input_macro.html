@@ -1,0 +1,8 @@
+{% macro course_input(name, id, value, label, placeholder, width='w-48') %}
+<div class="relative">
+  <label class="block text-xs text-gray-500">{{ label }}</label>
+  <input type="text" name="{{ name }}" id="{{ id }}" value="{{ value }}" placeholder="{{ placeholder }}"
+         class="course-multi-input border rounded-md p-1 text-sm {{ width }}" autocomplete="off" />
+  <div class="course-search-results absolute z-10 bg-white border rounded-md shadow-md {{ width }} max-h-40 overflow-y-auto" hidden></div>
+</div>
+{% endmacro %}

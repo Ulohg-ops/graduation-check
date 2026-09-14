@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>化材系畢業學分檢核系統 - 檢核結果</title>
-  <link rel="stylesheet" href="/static/tailwind.css" />
+  <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
   <style>
     /* 「下載PDF」是靠瀏覽器的列印功能存成PDF，不需要額外安裝套件（PDF函式庫大多要另外
        綁中文字型檔案，會讓安裝.bat變複雜）。這段只在列印時生效：把按鈕、導覽列這些操作用的
@@ -20,11 +20,14 @@
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+  {% set program = program | default('main') %}
+  {% set back_url = back_url | default('/') %}
+  {% set action_label = ('上傳成績單檢核' ~ fallback_name ~ '資格') if program != 'main' else '上傳成績單檢核畢業資格' %}
   <header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm no-print">
     <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
     <div class="flex items-center gap-3">
-      <a href="{{ '/minor' if minor_only else '/' }}" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">
-        {{ '← 上傳成績單檢核輔系資格' if minor_only else '← 上傳成績單檢核畢業資格' }}
+      <a href="{{ back_url }}" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">
+        ← {{ action_label }}
       </a>
     </div>
   </header>
@@ -33,23 +36,33 @@
     {% if rules_not_configured %}
     <h1 class="text-xl font-bold">檢核結果（{{ year }} 學年度規則）</h1>
     <div class="bg-red-100 text-red-800 rounded-md p-4 font-medium">
-      {% if minor_only %}
+      {% if program == 'minor' %}
       ⚠️ {{ year }} 學年度目前還沒有設定輔系規則，沒有規則可以比對，無法檢核。
       請先到「應修科目表管理」→「輔系」分頁籤為這個學年度建立規則後再試一次。
+      {% elif program == 'double_major' %}
+      ⚠️ {{ year }} 學年度目前還沒有設定雙主修規則，沒有規則可以比對，無法檢核。
+      請先到「應修科目表管理」→「雙主修」分頁籤為這個學年度建立規則後再試一次。
+      {% elif program == 'graduate' %}
+      ⚠️ 系統目前尚未開放{{ fallback_name }}資格檢核（還沒有建立這個身份的應修科目表規則），
+      這部分仍在規劃中，如有需要請洽系辦。
       {% else %}
       ⚠️ {{ year }} 學年度目前還沒有設定畢業門檻規則（沒有必修科目清單，或畢業總學分是0），
       沒有規則可以比對，無法檢核。請先到「調整應修科目表」為這個學年度建立規則後再試一次。
       {% endif %}
     </div>
-    <a href="/admin?year={{ year }}{{ '&tab=minor' if minor_only else '' }}" class="inline-block text-blue-600 hover:underline">前往設定 {{ year }} 學年度規則 →</a>
-    <a href="{{ '/minor' if minor_only else '/' }}" class="inline-block text-blue-600 hover:underline">
-      {{ '← 上傳成績單檢核輔系資格' if minor_only else '← 上傳成績單檢核畢業資格' }}
+    {% if program != 'graduate' %}
+    <a href="/admin?year={{ year }}{{ '&tab=' ~ program if program in ('minor', 'double_major') else '' }}" class="inline-block text-blue-600 hover:underline">前往設定 {{ year }} 學年度規則 →</a>
+    {% endif %}
+    <a href="{{ back_url }}" class="inline-block text-blue-600 hover:underline">
+      ← {{ action_label }}
     </a>
     {% else %}
     <div class="flex justify-between items-center flex-wrap gap-3">
       <h1 class="text-xl font-bold">
-        {% if minor_only %}
-        輔系資格檢核結果（{{ year }} 學年度規則）
+        {% if program == 'graduate' %}
+        {{ fallback_name }}課程門檻檢核結果
+        {% elif program != 'main' %}
+        {{ fallback_name }}資格檢核結果（{{ year }} 學年度規則）
         {% else %}
         檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）
         {% endif %}
@@ -156,7 +169,7 @@
       </div>
       {% else %}
 
-      {% if not minor_only %}
+      {% if program == 'main' %}
       <div class="rounded-lg p-4 mb-4 border {{ 'border-green-200 bg-green-50' if r.passed else 'border-red-200 bg-red-50' }}">
         <div class="flex items-center gap-2 font-semibold {{ 'text-green-800' if r.passed else 'text-red-800' }}">
           <span class="text-lg leading-none">{{ '✅' if r.passed else '❌' }}</span>
@@ -192,6 +205,7 @@
           {% if r.elective_credits and not r.elective_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">選修學分不足</span>{% endif %}
           {% if r.missing_required %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">仍有必修科目未通過</span>{% endif %}
           {% if r.note_results | selectattr('status', 'equalto', 'fail') | list %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">備註規則未符合</span>{% endif %}
+          {% if r.unmet_categories %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">教務處另有未完成項目</span>{% endif %}
         </div>
         {% endif %}
       </div>
@@ -423,9 +437,66 @@
       </div>
     </div>
     {% endif %}
+
+    {% if r.graduate %}
+    <div class="bg-white shadow-md rounded-lg p-6 result-card" data-result-index="{{ loop.index0 }}"
+         {% if not is_mock and results|length > 1 and loop.index0 != 0 %}hidden{% endif %}>
+      <div class="rounded-lg p-4 mb-4 border {{ 'border-green-200 bg-green-50' if r.graduate.passed else 'border-red-200 bg-red-50' }}">
+        <div class="flex items-center gap-2 font-semibold {{ 'text-green-800' if r.graduate.passed else 'text-red-800' }}">
+          <span class="text-lg leading-none">{{ '✅' if r.graduate.passed else '❌' }}</span>
+          {{ r.graduate.track_label }}課程門檻：{{ '已符合' if r.graduate.passed else '尚未符合' }}
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.credit_ok else 'border-gray-200 text-gray-700' }}">
+            總學分 {{ r.graduate.total_credit }} / {{ r.graduate.min_total_credits }}
+          </span>
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.pool_ok else 'border-gray-200 text-gray-700' }}">
+            六門課程池 {{ r.graduate.pool_passed | length }} / {{ r.graduate.pool_min_pass }}
+          </span>
+          {% if r.graduate.require_domain_each %}
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.domain_ok else 'border-gray-200 text-gray-700' }}">
+            化工／材料領域 {{ r.graduate.domains_covered | join('、') if r.graduate.domains_covered else '尚無' }}
+          </span>
+          {% endif %}
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.seminar_ok else 'border-gray-200 text-gray-700' }}">
+            書報討論 {{ r.graduate.seminar_semesters }} / {{ r.graduate.seminar_min_semesters }} 學期
+          </span>
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.topics_ok else 'border-gray-200 text-gray-700' }}">
+            專題研究 {{ r.graduate.topics_semesters }} / {{ r.graduate.topics_min_semesters }} 學期
+          </span>
+          {% if r.graduate.industry_topics_min_semesters %}
+          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.graduate.industry_topics_ok else 'border-gray-200 text-gray-700' }}">
+            產業專題研究 {{ r.graduate.industry_topics_semesters }} / {{ r.graduate.industry_topics_min_semesters }} 學期
+          </span>
+          {% endif %}
+        </div>
+        {% if r.graduate.pool_passed %}
+        <p class="text-xs text-gray-500 mt-2">
+          已通過課程池：{% for c in r.graduate.pool_passed %}{{ c.name }}（{{ c.code }}）{% if not loop.last %}、{% endif %}{% endfor %}
+        </p>
+        {% endif %}
+      </div>
+
+      {% if r.graduate.manual_review_items %}
+      <details open class="rounded-lg border border-blue-200 overflow-hidden">
+        <summary class="px-3 py-2 bg-blue-50 border-b border-blue-200 text-sm font-medium text-blue-800 cursor-pointer hover:bg-blue-100">
+          <span class="inline-flex w-full items-center justify-between gap-2">
+            <span>ℹ️ 需人工確認項目（無法從成績單自動判斷）</span>
+            <span class="text-xs text-blue-400 font-normal whitespace-nowrap">{{ r.graduate.manual_review_items | length }} 項</span>
+          </span>
+        </summary>
+        <ul class="divide-y divide-gray-100 bg-white">
+          {% for item in r.graduate.manual_review_items %}
+          <li class="px-3 py-2 text-sm text-gray-700">{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+    {% endif %}
     {% endfor %}
 
-    <a href="{{ '/minor' if minor_only else '/' }}" class="inline-block text-blue-600 hover:underline no-print">← 重新上傳</a>
+    <a href="{{ back_url }}" class="inline-block text-blue-600 hover:underline no-print">← 重新上傳</a>
     {% endif %}
   </div>
 
@@ -433,14 +504,15 @@
     const results = {{ results | tojson }};
     const requiredTotal = {{ required_total | tojson }};
     const year = {{ year | tojson }};
-    const minorOnly = {{ minor_only | default(false) | tojson }};
+    const secondaryOnly = {{ (program != 'main') | tojson }};
+    const fallbackName = {{ fallback_name | default('') | tojson }};
 
     // 跟畫面上綠色/紅色那個判定框一模一樣的文字，讓沒開網頁的人看CSV也看得懂結論
     function statusText(r) {
-      // /minor 上傳頁：r.passed是輔系資格的判定（見_build_minor_only_entry），主系欄位
-      // （required_credits等）都是中性預設值，不能拿來組「畢業資格」文字，要另外組輔系專用的文字。
-      if (minorOnly) {
-        const name = (r.minor && r.minor.name) || '輔系';
+      // /minor、/graduate 上傳頁：r.passed是該身份資格的判定（見_build_minor_only_entry），主系欄位
+      // （required_credits等）都是中性預設值，不能拿來組「畢業資格」文字，要另外組專用的文字。
+      if (secondaryOnly) {
+        const name = (r.minor && r.minor.name) || fallbackName;
         if (r.passed) return `✅ 已符合${name}資格`;
         const missingNames = (r.minor && r.minor.missing_required || []).map((m) => m.name);
         const noteFailed = (r.minor && r.minor.note_results || []).some((n) => n.status === 'fail');
@@ -459,6 +531,7 @@
       if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
       if (r.missing_required.length) reasons.push('仍有必修科目未通過');
       if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
+      if (r.unmet_categories.length) reasons.push('教務處畢業審核紀錄表另有未完成項目');
       return `❌ 尚未符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}${reasons.length ? '，' + reasons.join('、') : ''}）`;
     }
 

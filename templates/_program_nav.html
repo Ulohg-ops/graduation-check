@@ -1,0 +1,28 @@
+{% set program = program | default('main') %}
+<header class="bg-white shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4 flex-wrap gap-3">
+    <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
+    <a href="/admin"
+       class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">
+      調整應修科目表
+    </a>
+  </div>
+  <nav class="flex gap-1 bg-gray-100 rounded-md p-1 mx-6 mb-4 text-sm overflow-x-auto">
+    <a href="/"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if program == 'main' else 'text-gray-500' }}">
+      一般畢業資格
+    </a>
+    <a href="/minor"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if program == 'minor' else 'text-gray-500' }}">
+      輔系資格
+    </a>
+    <a href="/graduate"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if program == 'graduate' else 'text-gray-500' }}">
+      碩士班／博士班資格
+    </a>
+    <a href="/double_major"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if program == 'double_major' else 'text-gray-500' }}">
+      雙主修資格
+    </a>
+  </nav>
+</header>

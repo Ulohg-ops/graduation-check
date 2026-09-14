@@ -1,0 +1,89 @@
+<script>
+  // 同一頁面裡的分頁籤，靠JS切換顯示/隱藏，不用重新整頁。
+  // active_tab 是後端算好的初始分頁籤（例如表單送出後跳轉回來，記得跳回原本在編輯的那個分頁籤）。
+  const TAB_KEYS = {{ admin_tab_keys | tojson }};
+  function activateTab(tab) {
+    if (!TAB_KEYS.includes(tab)) tab = TAB_KEYS[0];
+    document.querySelectorAll('[data-tab-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.tabPanel !== tab;
+    });
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      const active = btn.dataset.tabBtn === tab;
+      btn.classList.toggle('bg-white', active);
+      btn.classList.toggle('shadow', active);
+      btn.classList.toggle('font-medium', active);
+      btn.classList.toggle('text-gray-800', active);
+      btn.classList.toggle('text-gray-500', !active);
+    });
+    document.getElementById('year-switch-tab').value = tab;
+  }
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => activateTab(btn.dataset.tabBtn));
+  });
+  activateTab({{ active_tab | tojson }});
+
+  // 備註規則表單依「類型」只顯示該類型用得到的欄位，避免填錯不相干的欄位造成困惑。
+  function updateNoteRuleFields(select) {
+    const form = select.closest('form');
+    form.querySelectorAll('[data-kind-fields]').forEach((el) => {
+      el.hidden = el.dataset.kindFields !== select.value;
+    });
+  }
+  document.querySelectorAll('.note-rule-form select[name="kind"]').forEach(updateNoteRuleFields);
+
+  // 課號/課名搜尋輔助：資料來源是這個學年度應修科目表裡的課（系統目前唯一有的課程清單）。
+  // 直接在逗號分隔欄位裡打字就會搜尋——比對的是「最後一個逗號後面」正在打的那一段，
+  // 點一下結果就把它換成選到的課號，不用另外開一個搜尋欄位，減少畫面上的輸入框數量。
+  const COURSE_CATALOG = {{ course_catalog | tojson }};
+
+  function setupCourseMultiInput(input) {
+    const resultsBox = input.nextElementSibling;
+    if (!resultsBox) return;
+
+    const currentQuery = () => {
+      const parts = input.value.split(',');
+      return parts[parts.length - 1].trim().toLowerCase();
+    };
+
+    const render = () => {
+      const q = currentQuery();
+      resultsBox.innerHTML = '';
+      if (!q) {
+        resultsBox.hidden = true;
+        return;
+      }
+      const matches = COURSE_CATALOG.filter(
+        (c) => c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+      ).slice(0, 8);
+      if (!matches.length) {
+        resultsBox.hidden = true;
+        return;
+      }
+      matches.forEach((c) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'block w-full text-left text-xs px-2 py-1 hover:bg-purple-50 truncate';
+        item.textContent = `${c.code}　${c.name}`;
+        item.addEventListener('mousedown', (e) => {
+          // mousedown（不是click）搶在 input 的 blur 事件之前觸發，不然結果框會先被blur事件關掉
+          e.preventDefault();
+          const rawParts = input.value.split(',');
+          rawParts.pop(); // 丟掉正在打的那一段（已經被選到的課號取代）
+          const completed = rawParts.map((s) => s.trim()).filter(Boolean);
+          if (!completed.includes(c.code)) completed.push(c.code);
+          input.value = completed.join(', ') + ', ';
+          resultsBox.hidden = true;
+          input.focus();
+        });
+        resultsBox.appendChild(item);
+      });
+      resultsBox.hidden = false;
+    };
+
+    input.addEventListener('input', render);
+    input.addEventListener('blur', () => {
+      resultsBox.hidden = true;
+    });
+  }
+  document.querySelectorAll('.course-multi-input').forEach(setupCourseMultiInput);
+</script>

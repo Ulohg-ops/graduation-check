@@ -1,6 +1,16 @@
-<header class="flex justify-between items-center px-6 py-4 bg-white shadow-sm">
-  <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
-  <div class="flex items-center gap-3">
+<header class="bg-white shadow-sm">
+  <div class="flex justify-between items-center px-6 py-4">
+    <span class="font-bold text-gray-800">化材系畢業學分檢核系統</span>
     <a href="/" class="text-sm bg-gray-600 text-white px-3 py-1.5 rounded-md hover:bg-gray-700">← 上傳成績單檢核畢業資格</a>
   </div>
+  <nav class="flex gap-1 bg-gray-100 rounded-md p-1 mx-6 mb-4 text-sm w-fit">
+    <a href="/admin"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'main' else 'text-gray-500' }}">
+      大學部應修科目表
+    </a>
+    <a href="/admin/programs"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'programs' else 'text-gray-500' }}">
+      輔系／雙主修／研究所
+    </a>
+  </nav>
 </header>

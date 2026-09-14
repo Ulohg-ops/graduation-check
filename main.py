@@ -35,6 +35,10 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # 樣板裡新增的 Tailwind class 沒被這份編譯好的CSS涵蓋到的話，要重新用 tailwindcss CLI 打包一次
 # （指令見 static/tailwind_input.css 旁邊，掃描 templates/ 底下用到的 class 重新編譯 tailwind.css）。
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# 樣板裡引用 tailwind.css 時要帶上這個版本號查詢字串（?v=...），不然瀏覽器可能會沿用舊版CSS的
+# 快取，改完樣式、重新編譯tailwind.css之後畫面卻沒更新——用檔案的修改時間當版本號，
+# 每次重新編譯內容一定會變、時間跟著變，剛好順便當成快取破壞用的版本號。
+templates.env.globals["css_version"] = int((BASE_DIR / "static" / "tailwind.css").stat().st_mtime)
 
 
 def load_rules() -> dict:
@@ -203,6 +207,232 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         "passed_codes": passed_codes,
         "passed_courses": passed_courses,
         "has_text": has_text,
+    }
+
+
+GRADUATE_RULES_FILE = BASE_DIR / "graduate_rules.yaml"
+
+
+def load_graduate_rules() -> dict:
+    with open(GRADUATE_RULES_FILE, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def save_graduate_rules(data: dict) -> None:
+    with open(GRADUATE_RULES_FILE, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+
+_GRAD_COURSE_CODE_RE = re.compile(r"^[A-Z]{2,3}\d{3,5}$")
+_GRAD_SEMESTER_RE = re.compile(r"第(\d+)學年度第(\d+)學期")
+
+
+def _parse_grad_score(raw: str, passing_score: float) -> tuple:
+    """碩博成績單（教務系統匯出的『學生個人成績一覽表』）沒有「判定」欄，只有原始成績，要自己判斷
+    通不通過：「抵免」「一般課程通過」這種文字成績（0學分的通過/不通過制課程、學分抵免）一律視為
+    通過；數字成績跟後台設定的及格分數（passing_score）比較。回傳 (數字成績或None, 是否通過)。
+    """
+    text = (raw or "").strip()
+    if "抵免" in text or "通過" in text:
+        return None, True
+    try:
+        value = float(text)
+    except ValueError:
+        return None, False
+    return value, value >= passing_score
+
+
+def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list:
+    """逐學期解析碩博成績單，格式跟大學部『畢業審核紀錄表』完全不同：沒有「判定」欄，而是按學期
+    分成一張張表格，中間穿插「第X學年度第X學期」的標題列。pdfplumber在每頁最前面常會把整頁課程
+    誤判成一大列雜訊（一整頁的文字擠在同一個儲存格），但雜訊列的第一欄不會是乾淨的課號格式，
+    天生就會被下面的課號格式檢查濾掉，不用特別處理。
+
+    書報討論／專題研究／產業專題研究這幾門課，每學期實際開課用的課號會逐學期輪替（例如專題研究
+    在某個學年是CH8018/CH8019交替），不是固定課號——規定要求的是「修滿幾個學期」，不是「有沒有
+    通過某個課號」，所以這裡刻意保留每一筆課程所屬的（學年,學期），不對同課號的多筆記錄去重，
+    交给呼叫端依名稱＋學期組合去算修了幾個不同學期。
+    """
+    rows = []
+    current_term = None
+    for page in pdf.pages:
+        for table in page.extract_tables():
+            for row in table:
+                cells = [(c or "") for c in row]
+                if not cells:
+                    continue
+                first = cells[0].replace("\n", "").strip()
+
+                m = _GRAD_SEMESTER_RE.search(first)
+                if m:
+                    current_term = (int(m.group(1)), int(m.group(2)))
+                    continue
+
+                if first == "課號" or not _GRAD_COURSE_CODE_RE.match(first):
+                    continue
+                if len(cells) < 7:
+                    continue
+
+                try:
+                    credit = float(cells[5].replace("\n", "").strip())
+                except ValueError:
+                    continue
+
+                score_text = cells[6].replace("\n", "").strip()
+                value, passed = _parse_grad_score(score_text, passing_score)
+                rows.append(
+                    {
+                        "code": first,
+                        "name": cells[2].replace("\n", "").strip(),
+                        "category": cells[3].replace("\n", "").strip(),
+                        "credit": credit,
+                        "score": value,
+                        "score_text": score_text,
+                        "passed": passed,
+                        "year": current_term[0] if current_term else None,
+                        "term": current_term[1] if current_term else None,
+                    }
+                )
+    return rows
+
+
+def parse_grad_transcript(pdf_bytes: bytes, passing_score: float = 60) -> dict:
+    """從碩博成績單（教務系統匯出的PDF）擷取逐學期課程明細，呼叫端要用try/except包住，理由跟
+    parse_transcript一樣：pdfplumber打開損毀檔案或非PDF檔案時會丟例外。
+    """
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        rows = _extract_grad_course_rows(pdf, passing_score)
+        has_text = any((page.extract_text() or "").strip() for page in pdf.pages)
+    return {"rows": rows, "has_text": has_text}
+
+
+def _build_graduate_check(rows: list, track: dict) -> dict:
+    """碩博資格門檻判斷：學分池、六門課程池通過門數、化工/材料領域各一門、書報討論／專題研究／
+    產業專題研究的修習學期數，四種判斷邏輯分開算，缺一項就整體判定不通過。每個學制的課程池／
+    領域對照表是各自獨立的一份資料（見_graduate_admin_context的說明），不是全學制共用同一份。
+    """
+    track_courses = track.get("courses", [])
+    courses_by_code = {c["code"]: c for c in track_courses}
+    pool_codes = {c["code"] for c in track_courses if c.get("in_pool")}
+
+    seen = set()
+    total_credit = 0.0
+    passed_pool_by_code: dict = {}
+    domains_covered: set = set()
+    seminar_terms: set = set()
+    topics_terms: set = set()
+    industry_terms: set = set()
+
+    for r in rows:
+        # 同一（課號,學年,學期）只算一次，避免萬一同一學期表格被掃到兩次時學分被重複加總
+        key = (r["code"], r["year"], r["term"])
+        if key in seen:
+            continue
+        seen.add(key)
+        if not r["passed"]:
+            continue
+
+        total_credit += r["credit"] or 0
+
+        course_info = courses_by_code.get(r["code"])
+        if course_info:
+            domains_covered.update(course_info.get("domains", []))
+            if r["code"] in pool_codes:
+                passed_pool_by_code[r["code"]] = course_info["name"]
+
+        name = r["name"] or ""
+        term_key = (r["year"], r["term"])
+        if "產業專題研究" in name:
+            industry_terms.add(term_key)
+        elif "專題研究" in name:
+            topics_terms.add(term_key)
+        elif "書報討論" in name:
+            seminar_terms.add(term_key)
+
+    industry_min = track.get("industry_topics_min_semesters", 0)
+    credit_ok = total_credit >= track["min_total_credits"]
+    pool_ok = len(passed_pool_by_code) >= track["pool_min_pass"]
+    domain_ok = (not track.get("require_domain_each")) or ({"化工", "材料"} <= domains_covered)
+    seminar_ok = len(seminar_terms) >= track["seminar_min_semesters"]
+    topics_ok = len(topics_terms) >= track["topics_min_semesters"]
+    industry_ok = len(industry_terms) >= industry_min if industry_min else True
+
+    return {
+        "total_credit": total_credit,
+        "min_total_credits": track["min_total_credits"],
+        "credit_ok": credit_ok,
+        "pool_passed": sorted(
+            ({"code": code, "name": name} for code, name in passed_pool_by_code.items()),
+            key=lambda c: c["code"],
+        ),
+        "pool_min_pass": track["pool_min_pass"],
+        "pool_ok": pool_ok,
+        "require_domain_each": track.get("require_domain_each", False),
+        "domains_covered": sorted(domains_covered),
+        "domain_ok": domain_ok,
+        "seminar_semesters": len(seminar_terms),
+        "seminar_min_semesters": track["seminar_min_semesters"],
+        "seminar_ok": seminar_ok,
+        "topics_semesters": len(topics_terms),
+        "topics_min_semesters": track["topics_min_semesters"],
+        "topics_ok": topics_ok,
+        "industry_topics_semesters": len(industry_terms),
+        "industry_topics_min_semesters": industry_min,
+        "industry_topics_ok": industry_ok,
+        "passed": credit_ok and pool_ok and domain_ok and seminar_ok and topics_ok and industry_ok,
+    }
+
+
+def _build_graduate_entry(filename: str, parsed: dict, track_key: str, grad_rules: dict) -> dict:
+    """/graduate 上傳頁的結果項，沿用跟_build_result_entry一樣的欄位骨架（見_build_minor_only_entry
+    的說明），主系相關欄位全部給「不檢查」的中性值，只有graduate欄位是真的算出來的判定結果。
+    """
+    track = grad_rules["tracks"][track_key]
+    rows = parsed["rows"]
+    check = _build_graduate_check(rows, track)
+
+    courses_display = sorted(
+        (
+            {
+                "code": r["code"],
+                "name": r["name"],
+                "credit": r["credit"],
+                "grade": r["score_text"],
+                "passed": r["passed"],
+            }
+            for r in rows
+        ),
+        key=lambda c: c["code"],
+    )
+
+    return {
+        "filename": filename,
+        "error": None,
+        "total_credit": check["total_credit"],
+        "credit_ok": True,
+        "required_credits": 0,
+        "required_credit_total": 0,
+        "required_credit_ok": True,
+        "core_required_credits": 0,
+        "core_required_credit_total": 0,
+        "core_required_credit_ok": True,
+        "elective_credits": 0,
+        "elective_credit_total": 0,
+        "elective_credit_ok": True,
+        "elective_courses": [],
+        "passed": check["passed"],
+        "courses": courses_display,
+        "has_text": parsed["has_text"],
+        "unmet_categories": [],
+        "missing_required": [],
+        "note_results": [],
+        "note_sections": [],
+        "minor": None,
+        "graduate": {
+            "track_label": track["label"],
+            **check,
+            "manual_review_items": grad_rules.get("manual_review_items", []),
+        },
     }
 
 
@@ -491,12 +721,12 @@ def _group_note_results_by_category(note_results: list) -> list:
     return sections
 
 
-def _build_minor_result(minor_data: dict, result: dict) -> dict:
-    """輔系資格是跟主系完全獨立的一套「應修科目表」（自己的required_courses/group_requirements/
-    note_rules），檢核邏輯直接重用missing_required_courses()跟evaluate_note_rules()——輔系的
-    規則形狀（固定必修幾門＋M選N分組、限修總學分門檻）跟主系的完全一樣，差別只在這套規則不能混進
-    主系的required_courses，不然主系學生也會被要求要修這些輔系限定的課。只有使用者上傳成績單時
-    勾選「也檢查輔系」才會呼叫這個函式，不是每份成績單都檢查（不是每個學生都有修輔系）。
+def _build_minor_result(minor_data: dict, result: dict, fallback_name: str = "輔系") -> dict:
+    """輔系／碩士班／博士班這類「非主系」資格，都是跟主系完全獨立的一套「應修科目表」（自己的
+    required_courses/group_requirements/note_rules），檢核邏輯直接重用missing_required_courses()
+    跟evaluate_note_rules()——規則形狀（固定必修幾門＋M選N分組、限修總學分門檻）跟主系的完全一樣，
+    差別只在這套規則不能混進主系的required_courses，不然主系學生也會被要求要修這些限定的課。
+    fallback_name是該學年度還沒替這個項目自訂名稱時要顯示的預設名稱（例如「輔系」或「碩士班／博士班」）。
     """
     required_courses = minor_data.get("required_courses", [])
     group_requirements = minor_data.get("group_requirements", {})
@@ -507,7 +737,7 @@ def _build_minor_result(minor_data: dict, result: dict) -> dict:
     )
     note_failed = any(n["status"] == "fail" for n in note_results)
     return {
-        "name": minor_data.get("name") or "輔系",
+        "name": minor_data.get("name") or fallback_name,
         "passed": not missing_required and not note_failed,
         "missing_required": missing_required,
         "note_results": note_results,
@@ -515,22 +745,51 @@ def _build_minor_result(minor_data: dict, result: dict) -> dict:
     }
 
 
+# 導覽列上每個身份別的上傳頁（index.html）共用同一份樣板，用program區分要顯示哪個身份、
+# 送出表單後要跑哪一套規則。之後要加新身份，多半只要在這裡加一個key、在rules.yaml每個學年度
+# 底下加對應的規則區塊，不用再另外複製一份樣板或/check的邏輯。有後台管理介面（/admin可以編輯
+# 應修科目）的身份另外要加進_SECONDARY_TARGETS，兩邊是各自獨立的清單——graduate目前只開了
+# 上傳頁，還沒有後台管理介面，所以不在_SECONDARY_TARGETS裡。
+_PROGRAM_LABELS = {"main": "畢業", "minor": "輔系", "double_major": "雙主修"}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     rules = load_rules()
     years = sorted(rules.keys(), reverse=True)
-    return templates.TemplateResponse(request, "index.html", {"years": years})
+    return templates.TemplateResponse(request, "index.html", {"years": years, "program": "main"})
 
 
 @app.get("/minor", response_class=HTMLResponse)
 async def minor_index(request: Request):
     """輔系資格檢核的上傳頁，跟主系（/）分開，避免使用者以為輔系是主系檢核的附加選項——
-    上傳同一種PDF，只是這個頁面送出後只會跑輔系那套規則（/check的minor_only模式），
+    上傳同一種PDF，只是這個頁面送出後只會跑輔系那套規則（/check的program=minor模式），
     結果頁也只顯示輔系資格判定，不會混進主系「畢業資格」的判定結果。
     """
     rules = load_rules()
     years = sorted(rules.keys(), reverse=True)
-    return templates.TemplateResponse(request, "index.html", {"years": years, "minor_only": True})
+    return templates.TemplateResponse(request, "index.html", {"years": years, "program": "minor"})
+
+
+@app.get("/graduate", response_class=HTMLResponse)
+async def graduate_index(request: Request):
+    """碩士班／博士班資格檢核的上傳頁。跟主系／輔系／雙主修不一樣，碩博的修業辦法不是照入學
+    學年度分開訂的，規則只有一份、用「學制」（碩士班/博士班/工學博士班/逕博）分——所以這裡
+    不用index.html那套「入學學年度」選單，改用專屬的graduate.html樣板，選單改選學制。
+    """
+    grad_rules = load_graduate_rules()
+    return templates.TemplateResponse(request, "graduate.html", {"tracks": grad_rules.get("tracks", {})})
+
+
+@app.get("/double_major", response_class=HTMLResponse)
+async def double_major_index(request: Request):
+    """雙主修資格檢核的上傳頁，給要雙主修化材系的外系學生用，跟主系（/）、輔系（/minor）一樣
+    各自獨立、跑自己的一套規則（/check的program=double_major模式，rules.yaml裡對應的區塊
+    是year_data['double_major']，在/admin的「雙主修」分頁籤管理）。
+    """
+    rules = load_rules()
+    years = sorted(rules.keys(), reverse=True)
+    return templates.TemplateResponse(request, "index.html", {"years": years, "program": "double_major"})
 
 
 def mock_transcript(year_data: dict) -> dict:
@@ -637,6 +896,11 @@ def _build_result_entry(
             and elective_credit_ok
             and not missing_required
             and not note_rules_failed
+            # unmet_categories 是教務處自己在畢業審核紀錄表裡標記「未完成」的項目，已經濾掉
+            # 跟其他檢查重複的部分（見上面的_DUPLICATED_CATEGORY_PREFIX/CODES）——剩下的
+            # 通常是我們自己的規則完全沒建模的特殊檢核條件（例如英文能力鑑定），教務處都說
+            # 沒過了，不能因為我們自己的學分/科目檢查都過就顯示「已符合畢業資格」蓋過這件事。
+            and not unmet_categories
         ),
         "courses": result["courses"],
         "has_text": result["has_text"],
@@ -647,6 +911,7 @@ def _build_result_entry(
         # 輔系資格檢核是/minor專用頁面的獨立流程（見_build_minor_only_entry），不會混進主系
         # 這裡的判定結果，所以這裡固定是None——結果頁看到None就不會顯示輔系那個區塊。
         "minor": None,
+        "graduate": None,
     }
 
 
@@ -676,17 +941,18 @@ def _build_error_entry(filename: str, error: str) -> dict:
         "note_results": [],
         "note_sections": [],
         "minor": None,
+        "graduate": None,
     }
 
 
-def _build_minor_only_entry(filename: str, result: dict, minor_data: dict) -> dict:
-    """/minor 專用上傳頁（跟主系上傳頁分開）的結果項——沿用跟_build_result_entry一樣的欄位骨架，
-    讓result.html既有的樣板／CSV／JS邏輯不用額外判斷欄位缺不缺，主系相關欄位（必修/選修學分
-    門檻等）全部給「不檢查」的中性值，只有minor欄位是真的算出來的判定結果。passed故意設成
-    minor_result的passed，這樣結果頁最上面「學生總覽」清單的狀態欄、CSV的判定結果欄，
-    不用另外改邏輯就能正確顯示輔系判定（不是主系判定）。
+def _build_minor_only_entry(filename: str, result: dict, minor_data: dict, fallback_name: str = "輔系") -> dict:
+    """/minor、/graduate 這類專用上傳頁（跟主系上傳頁分開）的結果項——沿用跟_build_result_entry
+    一樣的欄位骨架，讓result.html既有的樣板／CSV／JS邏輯不用額外判斷欄位缺不缺，主系相關欄位
+    （必修/選修學分門檻等）全部給「不檢查」的中性值，只有minor欄位是真的算出來的判定結果。passed
+    故意設成minor_result的passed，這樣結果頁最上面「學生總覽」清單的狀態欄、CSV的判定結果欄，
+    不用另外改邏輯就能正確顯示這個項目的判定（不是主系判定）。
     """
-    minor_result = _build_minor_result(minor_data, result)
+    minor_result = _build_minor_result(minor_data, result, fallback_name)
     return {
         "filename": filename,
         "error": None,
@@ -710,6 +976,7 @@ def _build_minor_only_entry(filename: str, result: dict, minor_data: dict) -> di
         "note_results": [],
         "note_sections": [],
         "minor": minor_result,
+        "graduate": None,
     }
 
 
@@ -718,16 +985,20 @@ async def check(
     request: Request,
     year: str = Form(...),
     files: List[UploadFile] = File([]),
-    minor_only: bool = Form(False),
+    program: str = Form("main"),
 ):
     rules = load_rules()
     year_data = rules.get(year, {})
 
-    # /minor 上傳頁送出的表單一律走這個分支：只比對輔系規則，完全不管主系的必修/選修學分
-    # 門檻，結果頁也只顯示輔系資格判定，不會出現「畢業資格」字樣（那是主系專屬的判定）。
-    if minor_only:
-        minor_data = year_data.get("minor")
-        if not minor_data:
+    # /minor、/double_major 上傳頁送出的表單都走這個分支：只比對各自身份的規則（存在year_data
+    # 底下同名的key），完全不管主系的必修/選修學分門檻，結果頁也只顯示該身份的資格判定，不會出現
+    # 「畢業資格」字樣（那是主系專屬的判定）。program不是這幾種就一律當main處理。
+    # 碩博（graduate）不是照入學學年度分規則，走專屬的/graduate/check，不會送表單來這裡。
+    if program in ("minor", "double_major"):
+        fallback_name = _PROGRAM_LABELS[program]
+        back_url = f"/{program}"
+        secondary_data = year_data.get(program)
+        if not secondary_data:
             return templates.TemplateResponse(
                 request,
                 "result.html",
@@ -737,7 +1008,9 @@ async def check(
                     "results": [],
                     "is_mock": False,
                     "rules_not_configured": True,
-                    "minor_only": True,
+                    "program": program,
+                    "fallback_name": fallback_name,
+                    "back_url": back_url,
                 },
             )
 
@@ -745,8 +1018,10 @@ async def check(
         results = []
         is_mock = not uploaded
         if is_mock:
-            result = mock_transcript({"required_courses": minor_data.get("required_courses", [])})
-            results.append(_build_minor_only_entry("（預覽假資料，尚未上傳成績單）", result, minor_data))
+            result = mock_transcript({"required_courses": secondary_data.get("required_courses", [])})
+            results.append(
+                _build_minor_only_entry("（預覽假資料，尚未上傳成績單）", result, secondary_data, fallback_name)
+            )
         else:
             for f in uploaded:
                 pdf_bytes = await f.read()
@@ -760,7 +1035,7 @@ async def check(
                 except Exception:
                     results.append(_build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀"))
                     continue
-                results.append(_build_minor_only_entry(f.filename, result, minor_data))
+                results.append(_build_minor_only_entry(f.filename, result, secondary_data, fallback_name))
 
         return templates.TemplateResponse(
             request,
@@ -770,7 +1045,9 @@ async def check(
                 "required_total": 0,
                 "results": results,
                 "is_mock": is_mock,
-                "minor_only": True,
+                "program": program,
+                "fallback_name": fallback_name,
+                "back_url": back_url,
             },
         )
 
@@ -1023,6 +1300,10 @@ def _admin_context(
     edit_note: Optional[int] = None,
     edit_minor: Optional[int] = None,
     edit_minor_note: Optional[int] = None,
+    edit_double_major: Optional[int] = None,
+    edit_double_major_note: Optional[int] = None,
+    edit_grad_track: Optional[str] = None,
+    edit_grad_course: Optional[int] = None,
     import_error: bool = False,
 ) -> dict:
     """/admin 頁面（GET路由、跟「匯入規則失敗要重新顯示這個頁面」共用）的畫面資料，抽出來共用，
@@ -1070,6 +1351,22 @@ def _admin_context(
     minor_course_sections = _build_course_sections(minor_required_courses, minor_data.get("group_requirements", {}))
     minor_note_rules = [_normalize_note_rule(i, r) for i, r in enumerate(minor_data.get("note_rules", []))]
 
+    # 雙主修跟輔系是同一種「次要身份應修科目表」，算法完全一樣，只是各自存在rules.yaml年度資料
+    # 底下不同的key（見_SECONDARY_TARGETS），給/admin的「雙主修」分頁籤用。
+    double_major_data = year_data.get("double_major") or {}
+    double_major_required_courses = [
+        _normalize_course(i, c) for i, c in enumerate(double_major_data.get("required_courses", []))
+    ]
+    double_major_group_options, double_major_group_requirements = _group_options_and_requirements(
+        double_major_required_courses, double_major_data
+    )
+    double_major_course_sections = _build_course_sections(
+        double_major_required_courses, double_major_data.get("group_requirements", {})
+    )
+    double_major_note_rules = [
+        _normalize_note_rule(i, r) for i, r in enumerate(double_major_data.get("note_rules", []))
+    ]
+
     return {
         "active_tab": tab,
         "years": years,
@@ -1101,7 +1398,222 @@ def _admin_context(
         "minor_note_rules": minor_note_rules,
         "edit_minor_index": edit_minor,
         "edit_minor_note_index": edit_minor_note,
+        "double_major_name": double_major_data.get("name") or "雙主修",
+        "double_major_required_courses": double_major_required_courses,
+        "double_major_course_sections": double_major_course_sections,
+        "double_major_group_options": double_major_group_options,
+        "double_major_group_requirements": double_major_group_requirements,
+        "double_major_note_rules": double_major_note_rules,
+        "edit_double_major_index": edit_double_major,
+        "edit_double_major_note_index": edit_double_major_note,
+        **_graduate_admin_context(edit_grad_track, edit_grad_course),
     }
+
+
+def _graduate_admin_context(edit_grad_track: Optional[str] = None, edit_grad_course: Optional[int] = None) -> dict:
+    """/admin/programs 底下「碩士班／博士班／工學博士班／逕博」分頁籤要用的資料——碩博規則跟
+    其他分頁籤不一樣，不是照學年度分（見load_graduate_rules的說明），所以獨立一個函式算，不用
+    跟著_admin_context其餘部分那樣每次都重新load_rules()/處理year。
+
+    每個學制的六門課程池／化工材料領域對照表是各自獨立的一份資料（不是四個學制共用同一份）——
+    這樣之後如果博士班的課程池跟碩士班分岔（例如校方只改了博士班的規定），改一個學制不會意外
+    影響到其他學制；代價是四份資料一開始內容相同時要各自維護，但比起共用一份卻可能被意外改動
+    更安全。edit_grad_track/edit_grad_course是目前正在編輯哪個學制的第幾筆課程（index只在
+    該學制自己的清單裡有意義，不是全域唯一）。
+    """
+    grad_rules = load_graduate_rules()
+    tracks = {}
+    for key, track in grad_rules.get("tracks", {}).items():
+        courses = [
+            {"index": i, "code": c.get("code", ""), "name": c.get("name", ""),
+             "domains": c.get("domains", []), "in_pool": bool(c.get("in_pool"))}
+            for i, c in enumerate(track.get("courses", []))
+        ]
+        tracks[key] = {**track, "courses": courses}
+    return {
+        "grad_passing_score": grad_rules.get("passing_score", 60),
+        "grad_tracks": tracks,
+        "grad_manual_review_items": list(enumerate(grad_rules.get("manual_review_items", []))),
+        "edit_grad_track": edit_grad_track,
+        "edit_grad_course_index": edit_grad_course,
+    }
+
+
+@app.post("/graduate/check", response_class=HTMLResponse)
+async def graduate_check(
+    request: Request,
+    track: str = Form(...),
+    files: List[UploadFile] = File([]),
+):
+    """碩博資格檢核，跟/check分開路由：碩博規則不是照入學學年度分（見/graduate的說明），表單送的
+    是track（學制）不是year，硬塞進共用的/check會讓那個函式的year分支邏輯更難懂，不如獨立一個。
+    """
+    grad_rules = load_graduate_rules()
+    tracks = grad_rules.get("tracks", {})
+    if track not in tracks:
+        track = next(iter(tracks), "")
+    passing_score = grad_rules.get("passing_score", 60)
+
+    uploaded = [f for f in files if f.filename][:MAX_FILES]
+    results = []
+    is_mock = not uploaded
+    if is_mock:
+        results.append(_build_graduate_entry("（預覽假資料，尚未上傳成績單）", {"rows": [], "has_text": True}, track, grad_rules))
+    else:
+        for f in uploaded:
+            pdf_bytes = await f.read()
+            if len(pdf_bytes) > MAX_FILE_SIZE:
+                results.append(
+                    _build_error_entry(f.filename, f"檔案大小超過{MAX_FILE_SIZE // (1024 * 1024)}MB，請確認是不是正確的成績單PDF")
+                )
+                continue
+            try:
+                parsed = parse_grad_transcript(pdf_bytes, passing_score)
+            except Exception:
+                results.append(_build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀"))
+                continue
+            results.append(_build_graduate_entry(f.filename, parsed, track, grad_rules))
+
+    return templates.TemplateResponse(
+        request,
+        "result.html",
+        {
+            "year": "",
+            "required_total": 0,
+            "results": results,
+            "is_mock": is_mock,
+            "program": "graduate",
+            "fallback_name": tracks.get(track, {}).get("label", "碩／博士班"),
+            "back_url": "/graduate",
+        },
+    )
+
+
+def _grad_domains_from_form(domain_chemical: bool, domain_material: bool) -> list:
+    domains = []
+    if domain_chemical:
+        domains.append("化工")
+    if domain_material:
+        domains.append("材料")
+    return domains
+
+
+@app.post("/admin/graduate/passing_score")
+async def admin_graduate_passing_score(passing_score: float = Form(...), redirect_tab: str = Form("master")):
+    """及格分數是碩博共用設定（成績單解析用，不分學制），跟其他四個學制各自獨立的規則不一樣，
+    表單本身不屬於任何一個學制分頁籤，用redirect_tab記得使用者存檔前停在哪個分頁籤。
+    """
+    grad_rules = load_graduate_rules()
+    grad_rules["passing_score"] = passing_score
+    save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={redirect_tab}", status_code=303)
+
+
+@app.post("/admin/graduate/course/add")
+async def admin_graduate_course_add(
+    track: str = Form(...),
+    code: str = Form(...),
+    name: str = Form(...),
+    domain_chemical: bool = Form(False),
+    domain_material: bool = Form(False),
+    in_pool: bool = Form(False),
+):
+    grad_rules = load_graduate_rules()
+    track_data = grad_rules.get("tracks", {}).get(track)
+    if track_data is not None:
+        track_data.setdefault("courses", []).append(
+            {
+                "code": code.strip(),
+                "name": name.strip(),
+                "domains": _grad_domains_from_form(domain_chemical, domain_material),
+                "in_pool": in_pool,
+            }
+        )
+        save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={track}", status_code=303)
+
+
+@app.post("/admin/graduate/course/update")
+async def admin_graduate_course_update(
+    track: str = Form(...),
+    index: int = Form(...),
+    code: str = Form(...),
+    name: str = Form(...),
+    domain_chemical: bool = Form(False),
+    domain_material: bool = Form(False),
+    in_pool: bool = Form(False),
+):
+    grad_rules = load_graduate_rules()
+    courses = grad_rules.get("tracks", {}).get(track, {}).get("courses", [])
+    if 0 <= index < len(courses):
+        courses[index] = {
+            "code": code.strip(),
+            "name": name.strip(),
+            "domains": _grad_domains_from_form(domain_chemical, domain_material),
+            "in_pool": in_pool,
+        }
+        save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={track}", status_code=303)
+
+
+@app.post("/admin/graduate/course/delete")
+async def admin_graduate_course_delete(track: str = Form(...), index: int = Form(...)):
+    grad_rules = load_graduate_rules()
+    courses = grad_rules.get("tracks", {}).get(track, {}).get("courses", [])
+    if 0 <= index < len(courses):
+        courses.pop(index)
+        save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={track}", status_code=303)
+
+
+@app.post("/admin/graduate/track/update")
+async def admin_graduate_track_update(
+    track: str = Form(...),
+    min_total_credits: float = Form(...),
+    pool_min_pass: int = Form(...),
+    require_domain_each: bool = Form(False),
+    seminar_min_semesters: int = Form(...),
+    topics_min_semesters: int = Form(...),
+    industry_topics_min_semesters: int = Form(0),
+):
+    grad_rules = load_graduate_rules()
+    tracks = grad_rules.setdefault("tracks", {})
+    if track in tracks:
+        tracks[track].update(
+            {
+                "min_total_credits": min_total_credits,
+                "pool_min_pass": pool_min_pass,
+                "require_domain_each": require_domain_each,
+                "seminar_min_semesters": seminar_min_semesters,
+                "topics_min_semesters": topics_min_semesters,
+                "industry_topics_min_semesters": industry_topics_min_semesters,
+            }
+        )
+    save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={track}", status_code=303)
+
+
+@app.post("/admin/graduate/manual_review/add")
+async def admin_graduate_manual_review_add(text: str = Form(...), redirect_tab: str = Form("master")):
+    """需人工確認項目（資格考排名、論文口試...）目前四個學制共用同一份清單，不像課程池那樣拆開——
+    這份清單是給結果頁的提醒文字，不是拿去自動判斷的資料，共用一份維護起來比較單純。
+    """
+    text = text.strip()
+    if text:
+        grad_rules = load_graduate_rules()
+        grad_rules.setdefault("manual_review_items", []).append(text)
+        save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={redirect_tab}", status_code=303)
+
+
+@app.post("/admin/graduate/manual_review/delete")
+async def admin_graduate_manual_review_delete(index: int = Form(...), redirect_tab: str = Form("master")):
+    grad_rules = load_graduate_rules()
+    items = grad_rules.get("manual_review_items", [])
+    if 0 <= index < len(items):
+        items.pop(index)
+    save_graduate_rules(grad_rules)
+    return RedirectResponse(f"/admin/programs?tab={redirect_tab}", status_code=303)
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -1111,15 +1623,44 @@ async def admin(
     tab: str = "courses",
     edit: Optional[int] = None,
     edit_note: Optional[int] = None,
-    edit_minor: Optional[int] = None,
-    edit_minor_note: Optional[int] = None,
 ):
-    """單一頁面、單一網址（/admin），畫面上分「科目管理／分組與學年度設定／備註規則設定／輔系」
-    四個分頁籤，用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」
-    （例如表單送出後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    """大學部的應修科目表管理頁，分「科目管理／分組與學年度設定／備註規則設定」三個分頁籤，
+    用前端JS切換顯示、不用重新整頁——`tab` 這個查詢參數只是給「切哪個分頁後刷新頁面」（例如
+    表單送出後跳轉回來）時，能一開始就顯示對的分頁籤，避免每次存檔後又跳回第一個分頁籤。
+    輔系／雙主修／研究所課程分類已經拆到獨立的/admin/programs頁面（見_admin_nav.html的分頁
+    切換列），這裡的_admin_context()雖然還是會順便算出那幾個身份的資料，但這個頁面的樣板不會
+    用到，兩個路由共用同一個context函式單純是省得複製一份年度/課程解析邏輯。
     """
     return templates.TemplateResponse(
-        request, "admin.html", _admin_context(year, tab, edit, edit_note, edit_minor, edit_minor_note)
+        request,
+        "admin.html",
+        _admin_context(year, tab, edit, edit_note),
+    )
+
+
+@app.get("/admin/programs", response_class=HTMLResponse)
+async def admin_programs(
+    request: Request,
+    year: Optional[str] = None,
+    tab: str = "minor",
+    edit_minor: Optional[int] = None,
+    edit_minor_note: Optional[int] = None,
+    edit_double_major: Optional[int] = None,
+    edit_double_major_note: Optional[int] = None,
+    edit_grad_track: Optional[str] = None,
+    edit_grad_course: Optional[int] = None,
+):
+    """輔系／雙主修／碩士班／博士班／工學博士班／逕博的後台管理頁，跟/admin（大學部）分開
+    頁面——這幾個身份各自的表單/資料形狀跟大學部不一樣，擠在同一個頁面分頁籤太多，拆開後
+    兩邊分頁籤數量都比較好抓。
+    """
+    return templates.TemplateResponse(
+        request,
+        "admin_programs.html",
+        _admin_context(
+            year, tab, None, None, edit_minor, edit_minor_note,
+            edit_double_major, edit_double_major_note, edit_grad_track, edit_grad_course,
+        ),
     )
 
 
@@ -1170,15 +1711,30 @@ async def admin_year_delete(year: str = Form(...)):
     return RedirectResponse("/admin", status_code=303)
 
 
+# 主系以外，跟主系共用同一套「應修科目表」管理表單（科目/分組/備註規則）的身份別，
+# key是rules.yaml裡年度資料底下的區塊名稱，value是這個區塊第一次被編輯、還沒建立過時的預設名稱。
+# 之後要加新身份（例如某個雙學位），這裡加一行就好，不用再複製一份表單或路由。
+_SECONDARY_TARGETS = {"minor": "輔系", "double_major": "雙主修"}
+
+
+def _admin_redirect_base(tab: str) -> str:
+    """大學部的分頁籤（科目管理/分組與學年度設定/備註規則設定）在/admin頁面，輔系/雙主修這些
+    「其他身份」分頁籤已經拆到獨立的/admin/programs頁面——表單存檔後要跳轉回原本編輯的分頁籤，
+    但兩邊分頁籤在不同網址，要先判斷tab屬於哪一頁才知道該轉址回哪裡。
+    """
+    return "/admin/programs" if tab in _SECONDARY_TARGETS else "/admin"
+
+
 def _resolve_target_data(rules: dict, year: str, target: str) -> dict:
-    """後台的科目/分組/層級/備註規則管理，主系跟輔系共用同一套表單跟路由，只差在改的是
-    rules[year] 本身還是 rules[year]['minor']——target 就是用來分辨要改哪一份。輔系規則第一次
-    被編輯時如果還沒建立過，就順便建一個空骨架出來，不用另外一個「新增輔系」的步驟。
+    """後台的科目/分組/層級/備註規則管理，主系跟輔系、雙主修這些「次要身份」共用同一套表單跟
+    路由，只差在改的是 rules[year] 本身還是 rules[year][target]——target 就是用來分辨要改哪一份。
+    次要身份的規則第一次被編輯時如果還沒建立過，就順便建一個空骨架出來，不用另外一個「新增」步驟。
     """
     year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
-    if target == "minor":
+    if target in _SECONDARY_TARGETS:
         return year_data.setdefault(
-            "minor", {"name": "輔系", "required_courses": [], "group_requirements": {}, "note_rules": []}
+            target,
+            {"name": _SECONDARY_TARGETS[target], "required_courses": [], "group_requirements": {}, "note_rules": []},
         )
     return year_data
 
@@ -1191,8 +1747,8 @@ async def admin_group_set_requirement(
     target_data = _resolve_target_data(rules, year, target)
     target_data.setdefault("group_requirements", {})[group] = required_count
     save_rules(rules)
-    tab = "minor" if target == "minor" else "settings"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "settings"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/group/rename")
@@ -1216,8 +1772,8 @@ async def admin_group_rename(
             group_requirements.setdefault(new_group, old_count)
         save_rules(rules)
 
-    tab = "minor" if target == "minor" else "settings"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "settings"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/group/delete")
@@ -1232,8 +1788,8 @@ async def admin_group_delete(year: str = Form(...), group: str = Form(...), targ
     target_data.get("group_requirements", {}).pop(group, None)
     save_rules(rules)
 
-    tab = "minor" if target == "minor" else "settings"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "settings"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/tier/rename")
@@ -1289,8 +1845,8 @@ async def admin_course_add(
         }
     )
     save_rules(rules)
-    tab = "minor" if target == "minor" else "courses"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "courses"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/course/update")
@@ -1316,9 +1872,9 @@ async def admin_course_update(
             "group": group, "tier": tier, "note": note, "code_prefixes": _parse_code_list(code_prefixes),
         }
     save_rules(rules)
-    tab = "minor" if target == "minor" else "courses"
-    row_prefix = "minor-row" if target == "minor" else "row"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "courses"
+    row_prefix = f"{target}-row" if target in _SECONDARY_TARGETS else "row"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
 
 
 @app.post("/admin/course/delete")
@@ -1329,8 +1885,8 @@ async def admin_course_delete(year: str = Form(...), index: int = Form(...), tar
     if 0 <= index < len(courses):
         courses.pop(index)
     save_rules(rules)
-    tab = "minor" if target == "minor" else "courses"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "courses"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/total_credits")
@@ -1390,8 +1946,8 @@ async def admin_note_rule_add(
         _build_note_rule(kind, category, text, scope, direction, min_credits, code_prefixes, extra_codes)
     )
     save_rules(rules)
-    tab = "minor" if target == "minor" else "notes"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "notes"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.post("/admin/note_rule/update")
@@ -1414,9 +1970,9 @@ async def admin_note_rule_update(
     if 0 <= index < len(note_rules):
         note_rules[index] = _build_note_rule(kind, category, text, scope, direction, min_credits, code_prefixes, extra_codes)
     save_rules(rules)
-    tab = "minor" if target == "minor" else "notes"
-    row_prefix = "minor-note-row" if target == "minor" else "note-row"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "notes"
+    row_prefix = f"{target}-note-row" if target in _SECONDARY_TARGETS else "note-row"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}#{row_prefix}-{index}", status_code=303)
 
 
 @app.post("/admin/note_rule/delete")
@@ -1427,8 +1983,8 @@ async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...), 
     if 0 <= index < len(note_rules):
         note_rules.pop(index)
     save_rules(rules)
-    tab = "minor" if target == "minor" else "notes"
-    return RedirectResponse(f"/admin?year={year}&tab={tab}", status_code=303)
+    tab = target if target in _SECONDARY_TARGETS else "notes"
+    return RedirectResponse(f"{_admin_redirect_base(tab)}?year={year}&tab={tab}", status_code=303)
 
 
 @app.get("/admin/rules/export")
