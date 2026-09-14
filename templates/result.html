@@ -504,70 +504,81 @@
     const results = {{ results | tojson }};
     const requiredTotal = {{ required_total | tojson }};
     const year = {{ year | tojson }};
-    const secondaryOnly = {{ (program != 'main') | tojson }};
     const fallbackName = {{ fallback_name | default('') | tojson }};
 
-    // 跟畫面上綠色/紅色那個判定框一模一樣的文字，讓沒開網頁的人看CSV也看得懂結論
-    function statusText(r) {
-      // /minor、/graduate 上傳頁：r.passed是該身份資格的判定（見_build_minor_only_entry），主系欄位
-      // （required_credits等）都是中性預設值，不能拿來組「畢業資格」文字，要另外組專用的文字。
-      if (secondaryOnly) {
-        const name = (r.minor && r.minor.name) || fallbackName;
-        if (r.passed) return `✅ 已符合${name}資格`;
-        const missingNames = (r.minor && r.minor.missing_required || []).map((m) => m.name);
-        const noteFailed = (r.minor && r.minor.note_results || []).some((n) => n.status === 'fail');
-        const reasons = [];
-        if (missingNames.length) reasons.push(`還沒通過：${missingNames.join('、')}`);
-        if (noteFailed) reasons.push('備註規則未符合');
-        return `❌ 尚未符合${name}資格${reasons.length ? '（' + reasons.join('；') + '）' : ''}`;
-      }
-      if (r.passed) {
-        return `✅ 已符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}，應修必修科目皆已通過）`;
-      }
-      const reasons = [];
-      if (!r.credit_ok) reasons.push('學分不足');
-      if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
-      if (r.core_required_credits && !r.core_required_credit_ok) reasons.push('核心必修學分不足');
-      if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
-      if (r.missing_required.length) reasons.push('仍有必修科目未通過');
-      if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
-      if (r.unmet_categories.length) reasons.push('教務處畢業審核紀錄表另有未完成項目');
-      return `❌ 尚未符合畢業資格（總學分 ${r.total_credit} / ${requiredTotal}${reasons.length ? '，' + reasons.join('、') : ''}）`;
-    }
+    // 螢幕上的判定結果統一用幾個固定詞（通過/未通過/未修/未完成/已認列/提醒），不混雜長句子——
+    // 每一列只講一件事，「學分」欄位固定只放數字或留空，說明文字一律放最後的「備註」欄，
+    // 這樣不管哪個身份（畢業資格/輔系/雙主修/碩博）匯出的CSV，同一欄位的內容形狀都一致，
+    // 在Excel打開才不會因為同一欄一下是數字一下是長句子而看起來跑版。
+    const NOTE_STATUS_LABELS = { ok: '已完成', fail: '未完成', na: '不適用', info: '提醒' };
 
-    // 把一批結果（可能是全部、也可能只有一份）整理成 CSV 的資料列，
-    // 目標是把畫面上每一區塊（判定結果／還沒通過的科目／教務處未完成項目／課程明細）都對應成一列，
-    // 這樣不用打開網頁，光看CSV也能還原畫面上顯示的完整內容。
     function buildCsvRows(resultList) {
-      const rows = [['檔案名稱', '學年度', '區塊', '課號/代碼', '項目名稱', '學分', '成績/備註', '狀態']];
+      const rows = [['檔案名稱', '學年度／學制', '區塊', '項目', '學分', '狀態', '備註']];
       for (const r of resultList) {
-        rows.push([r.filename, year, '判定結果', '', statusText(r), r.total_credit, `畢業門檻 ${requiredTotal} 學分`, r.passed ? '通過' : '未通過']);
+        const label = r.graduate ? (year || fallbackName) : year;
+        const push = (section, item, credit, status, note) => {
+          rows.push([r.filename, label, section, item, credit, status, note || '']);
+        };
 
-        for (const m of r.missing_required) {
-          rows.push([r.filename, year, '還沒通過的科目', m.missing_codes.join('、'), m.name, '', m.note || '', '未修']);
+        if (r.error) {
+          push('判定結果', '無法檢核這份檔案', '', '錯誤', r.error);
+          continue;
         }
 
-        for (const u of r.unmet_categories) {
-          rows.push([
-            r.filename, year, '教務處未完成項目', u.code, u.name,
-            `實修${u.actual_credit}/應修${u.required_credit}學分`, `實修${u.actual_count}/應修${u.required_count}科目`, '未完成',
-          ]);
+        if (r.graduate) {
+          const g = r.graduate;
+          push('判定結果', `${g.track_label}資格`, g.total_credit, g.passed ? '通過' : '未通過', '');
+          push('學分門檻', '總學分', g.total_credit, g.credit_ok ? '達標' : '未達標', `門檻 ${g.min_total_credits} 學分`);
+          push('課程池', '六門課程池', g.pool_passed.length, g.pool_ok ? '達標' : '未達標', `門檻至少 ${g.pool_min_pass} 門`);
+          for (const c of g.pool_passed) {
+            push('課程池－已通過', `${c.code} ${c.name}`, '', '通過', '');
+          }
+          if (g.require_domain_each) {
+            push('化工／材料領域', '各領域至少一門', '', g.domain_ok ? '達標' : '未達標', `已涵蓋：${g.domains_covered.join('、') || '無'}`);
+          }
+          push('學期數', '書報討論', g.seminar_semesters, g.seminar_ok ? '達標' : '未達標', `門檻 ${g.seminar_min_semesters} 學期`);
+          push('學期數', '專題研究', g.topics_semesters, g.topics_ok ? '達標' : '未達標', `門檻 ${g.topics_min_semesters} 學期`);
+          if (g.industry_topics_min_semesters) {
+            push('學期數', '產業專題研究', g.industry_topics_semesters, g.industry_topics_ok ? '達標' : '未達標', `門檻 ${g.industry_topics_min_semesters} 學期`);
+          }
+          for (const item of g.manual_review_items) {
+            push('需人工確認', item, '', '提醒', '');
+          }
+        } else if (r.minor) {
+          const m = r.minor;
+          push('判定結果', `${m.name}資格`, '', m.passed ? '通過' : '未通過', '');
+          for (const item of m.missing_required) {
+            push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
+          }
+          for (const n of m.note_results) {
+            push('備註規則', n.text, '', NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
+          }
+        } else {
+          push('判定結果', '畢業資格', r.total_credit, r.passed ? '通過' : '未通過', `門檻 ${requiredTotal} 學分`);
+          if (!r.credit_ok) push('學分門檻', '總學分', r.total_credit, '未達標', `門檻 ${requiredTotal} 學分`);
+          if (r.required_credits && !r.required_credit_ok) push('學分門檻', '必修學分', r.required_credit_total, '未達標', `門檻 ${r.required_credits} 學分`);
+          if (r.core_required_credits && !r.core_required_credit_ok) push('學分門檻', '核心必修學分', r.core_required_credit_total, '未達標', `門檻 ${r.core_required_credits} 學分`);
+          if (r.elective_credits && !r.elective_credit_ok) push('學分門檻', '選修學分', r.elective_credit_total, '未達標', `門檻 ${r.elective_credits} 學分`);
+          for (const item of r.missing_required) {
+            push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
+          }
+          for (const u of r.unmet_categories) {
+            push('教務處未完成項目', u.name, '', '未完成', `應修 ${u.required_credit} 學分／${u.required_count} 科目，實修 ${u.actual_credit} 學分／${u.actual_count} 科目`);
+          }
+          for (const n of r.note_results) {
+            push('備註規則', n.text, '', NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
+          }
+          for (const c of r.elective_courses) {
+            push('已認列選修學分課程', `${c.code} ${c.name}`, c.credit, '已認列', '');
+          }
         }
 
-        const noteStatusLabel = { ok: '已完成', fail: '未完成', na: '不適用', info: '提醒' };
-        for (const n of r.note_results) {
-          rows.push([r.filename, year, '備註規則', '', n.text, '', n.detail || '', noteStatusLabel[n.status] || n.status]);
-        }
-
-        for (const c of r.elective_courses) {
-          rows.push([r.filename, year, '選修學分課程', c.code, c.name, c.credit, '', '選修']);
-        }
-
+        // 課程明細：不管哪個身份都完整列出這份成績單解析到的每一門課，方便對照原始成績單
         if (!r.courses.length) {
-          rows.push([r.filename, year, '課程明細', '', '（沒有解析到任何課程資料）', '', '', '']);
+          push('課程明細', '（沒有解析到任何課程資料）', '', '', '');
         }
         for (const c of r.courses) {
-          rows.push([r.filename, year, '課程明細', c.code, c.name, c.credit, c.grade, c.passed ? '通過' : '不通過']);
+          push('課程明細', `${c.code} ${c.name}`, c.credit, c.passed ? '通過' : '不通過', c.grade);
         }
       }
       return rows;
