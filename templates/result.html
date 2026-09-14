@@ -76,7 +76,7 @@
         {% if results|length > 1 %}
         <button id="download-all-csv"
                 class="text-sm bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700">
-          下載全部 {{ results|length }} 份結果 (CSV)
+          下載全部 {{ results|length }} 份結果 (Excel)
         </button>
         {% endif %}
       </div>
@@ -88,7 +88,7 @@
       「下載PDF」是用瀏覽器的列印功能，選「另存為PDF」就能存成排版跟畫面一樣的文件，適合列印或存檔給學生看。
       {% if results|length > 1 %}
       「下載全部」會把{{ results|length }}份結果一起匯出；每份結果卡片右上角的「下載」則只匯出該份自己的結果。
-      CSV是原始資料表格，適合再拿去用Excel整理或篩選。
+      Excel是原始資料表格，「狀態」欄會依通過/未通過自動上底色，適合再拿去篩選或整理。
       {% endif %}
     </p>
     {% endif %}
@@ -157,7 +157,7 @@
           </button>
           <button class="download-one-csv text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-200 whitespace-nowrap"
                   data-index="{{ loop.index0 }}">
-            下載 (CSV)
+            下載 (Excel)
           </button>
         </div>
         {% endif %}
@@ -584,10 +584,59 @@
       return rows;
     }
 
-    function downloadCsv(rows, filename) {
-      const escapeCell = (v) => `"${String(v).replace(/"/g, '""')}"`;
-      const csv = '﻿' + rows.map(row => row.map(escapeCell).join(',')).join('\r\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // 「狀態」欄（第6欄，index 5）依內容自動上底色，跟畫面上綠色/紅色卡片的邏輯一致，
+    // 純文字CSV做不到底色，所以匯出成Excel看得懂的HTML表格（副檔名.xls），Excel會直接
+    // 當表格開啟、套用這裡寫的inline樣式，不需要另外裝套件或引入外部函式庫。
+    const STATUS_STYLES = {
+      '通過': { bg: '#c6efce', color: '#006100' },
+      '已完成': { bg: '#c6efce', color: '#006100' },
+      '已認列': { bg: '#c6efce', color: '#006100' },
+      '達標': { bg: '#c6efce', color: '#006100' },
+      '未通過': { bg: '#ffc7ce', color: '#9c0006' },
+      '未修': { bg: '#ffc7ce', color: '#9c0006' },
+      '未完成': { bg: '#ffc7ce', color: '#9c0006' },
+      '未達標': { bg: '#ffc7ce', color: '#9c0006' },
+      '錯誤': { bg: '#ffc7ce', color: '#9c0006' },
+      '提醒': { bg: '#ffeb9c', color: '#9c6500' },
+      '不適用': { bg: '#ffeb9c', color: '#9c6500' },
+    };
+
+    function escapeHtml(v) {
+      return String(v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function downloadExcel(rows, filename) {
+      const [header, ...dataRows] = rows;
+      const statusCol = header.indexOf('狀態');
+
+      const headerHtml = header
+        .map((cell) => `<th style="background:#374151;color:#fff;padding:4px 8px;border:1px solid #999;">${escapeHtml(cell)}</th>`)
+        .join('');
+
+      const bodyHtml = dataRows
+        .map((row) => {
+          const cells = row
+            .map((cell, i) => {
+              const style = i === statusCol ? STATUS_STYLES[cell] : null;
+              const cellStyle = style
+                ? `background:${style.bg};color:${style.color};font-weight:bold;`
+                : '';
+              return `<td style="padding:4px 8px;border:1px solid #ccc;${cellStyle}">${escapeHtml(cell)}</td>`;
+            })
+            .join('');
+          return `<tr>${cells}</tr>`;
+        })
+        .join('');
+
+      const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head>` +
+        `<body><table style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">` +
+        `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`;
+
+      const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -596,9 +645,9 @@
       URL.revokeObjectURL(url);
     }
 
-    // 頂部「下載全部結果」：把這次上傳的所有份成績單合併成一個CSV
+    // 頂部「下載全部結果」：把這次上傳的所有份成績單合併成一份Excel
     document.getElementById('download-all-csv')?.addEventListener('click', () => {
-      downloadCsv(buildCsvRows(results), '畢業學分檢核結果_全部.csv');
+      downloadExcel(buildCsvRows(results), '畢業學分檢核結果_全部.xls');
     });
 
     // 每張結果卡片右上角的「下載」：只匯出那一份自己的結果
@@ -606,7 +655,7 @@
       btn.addEventListener('click', () => {
         const r = results[Number(btn.dataset.index)];
         const safeName = r.filename.replace(/[\\/:*?"<>|]/g, '_');
-        downloadCsv(buildCsvRows([r]), `畢業學分檢核結果_${safeName}.csv`);
+        downloadExcel(buildCsvRows([r]), `畢業學分檢核結果_${safeName}.xls`);
       });
     });
 
