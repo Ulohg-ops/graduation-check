@@ -22,6 +22,7 @@ import time
 import traceback
 import tkinter as tk
 import webbrowser
+from pathlib import Path
 from tkinter import messagebox
 
 if sys.stdout is None:
@@ -29,9 +30,35 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open("nul" if sys.platform == "win32" else "/dev/null", "w", encoding="utf-8")
 
+# 跟main.py同一套判斷（見那邊的說明）：打包後要用.exe實際的位置當基準，圖示檔才找得到。
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+ICON_PATH = BASE_DIR / "static" / "icon.ico"
+
 HOST = "127.0.0.1"
 PORT = 8000
 URL = f"http://{HOST}:{PORT}"
+
+# 跟網頁介面（templates裡的Tailwind設定）用同一套配色，讓執行檔的小視窗跟瀏覽器裡的畫面
+# 看起來是同一套系統，不是兩個風格對不上的介面。
+BLUE = "#2563EB"       # tailwind blue-600
+BLUE_DARK = "#1D4ED8"  # tailwind blue-700，按鈕按下時的深色
+GREEN = "#16A34A"      # tailwind green-600
+GRAY_TEXT = "#6B7280"  # tailwind gray-500
+BG = "#F9FAFB"         # tailwind gray-50
+
+
+def _set_icon(root: tk.Tk) -> None:
+    """.ico只有Windows的iconbitmap吃得下，開發時在macOS/Linux跑會直接丟例外——
+    圖示顯示失敗不該讓整個視窗開不起來，失敗就算了，不影響其他功能。
+    """
+    try:
+        if ICON_PATH.exists():
+            root.iconbitmap(default=str(ICON_PATH))
+    except Exception:
+        pass
 
 
 def _port_in_use() -> bool:
@@ -40,11 +67,19 @@ def _port_in_use() -> bool:
         return s.connect_ex((HOST, PORT)) == 0
 
 
+def _center(root: tk.Tk, width: int, height: int) -> None:
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - width) // 2
+    y = (root.winfo_screenheight() - height) // 3
+    root.geometry(f"{width}x{height}+{x}+{y}")
+
+
 def _fatal_error(exc: Exception) -> None:
     # 打包成 --noconsole 之後沒有黑色視窗可以看錯誤訊息，啟動失敗（通常是資料檔案沒打包對、
     # 或路徑算錯）預設會整個「安靜地」關掉，使用者只會覺得「點了沒反應」，完全沒有線索能回報
     # 問題。這裡開一個訊息框把完整錯誤內容印出來，至少能截圖回報。
     root = tk.Tk()
+    _set_icon(root)
     root.withdraw()
     messagebox.showerror(
         "化材系畢業學分檢核系統 - 啟動失敗",
@@ -58,6 +93,7 @@ def main() -> None:
         # port，直接開瀏覽器連過去就好，跳個提示讓使用者知道發生了什麼事，不要讓程式悄悄關掉。
         webbrowser.open(URL)
         root = tk.Tk()
+        _set_icon(root)
         root.withdraw()
         messagebox.showinfo(
             "化材系畢業學分檢核系統",
@@ -90,25 +126,60 @@ def main() -> None:
 
     root = tk.Tk()
     root.title("化材系畢業學分檢核系統")
-    root.geometry("380x180")
+    root.configure(bg=BG)
     root.resizable(False, False)
+    _set_icon(root)
+    _center(root, 440, 280)
 
-    tk.Label(root, text="系統執行中", font=("Microsoft JhengHei", 14, "bold")).pack(pady=(24, 6))
-    tk.Label(root, text=f"瀏覽器網址：{URL}", font=("Microsoft JhengHei", 10)).pack()
+    # 頂部品牌色橫幅，呼應網頁版導覽列的藍色（bg-blue-600），讓執行檔的小視窗跟瀏覽器裡的
+    # 畫面一眼看出是同一套系統，不是隨便一個Tk預設灰色視窗。
+    header = tk.Frame(root, bg=BLUE, height=64)
+    header.pack(fill="x")
+    header.pack_propagate(False)
     tk.Label(
-        root,
-        text="這個小視窗代表系統正在背景執行，關閉視窗會一併停止系統。\n瀏覽器分頁可以直接關掉沒關係，要再打開就回來點這個視窗旁邊的網址。",
-        font=("Microsoft JhengHei", 9),
-        fg="gray",
-        wraplength=340,
-        justify="left",
-    ).pack(pady=(8, 16))
+        header, text="🎓 化材系畢業學分檢核系統", font=("Microsoft JhengHei", 13, "bold"),
+        bg=BLUE, fg="white",
+    ).pack(expand=True)
+
+    body = tk.Frame(root, bg=BG)
+    body.pack(fill="both", expand=True, padx=28, pady=(20, 16))
+
+    status_row = tk.Frame(body, bg=BG)
+    status_row.pack(anchor="w")
+    dot = tk.Canvas(status_row, width=10, height=10, bg=BG, highlightthickness=0)
+    dot.create_oval(1, 1, 9, 9, fill=GREEN, outline="")
+    dot.pack(side="left", padx=(0, 6))
+    tk.Label(status_row, text="系統執行中", font=("Microsoft JhengHei", 12, "bold"), bg=BG, fg="#111827").pack(side="left")
+
+    # 網址做成看起來像連結的樣子、點下去直接開瀏覽器——使用者不用自己選取文字複製貼上，
+    # 瀏覽器分頁不小心關掉時，這裡就是唯一能再打開畫面的地方。
+    link = tk.Label(
+        body, text=URL, font=("Microsoft JhengHei", 10, "underline"), bg=BG, fg=BLUE, cursor="hand2",
+    )
+    link.pack(anchor="w", pady=(6, 0))
+    link.bind("<Button-1>", lambda _e: webbrowser.open(URL))
+
+    tk.Frame(body, bg="#E5E7EB", height=1).pack(fill="x", pady=14)
+
+    tk.Label(
+        body,
+        text="這個小視窗代表系統正在背景執行，關閉視窗會一併停止系統。\n瀏覽器分頁可以直接關掉沒關係，要再打開就回來點上面的網址。",
+        font=("Microsoft JhengHei", 9), bg=BG, fg=GRAY_TEXT, wraplength=380, justify="left",
+    ).pack(anchor="w")
 
     def on_close() -> None:
         server.should_exit = True
         root.destroy()
 
-    tk.Button(root, text="結束系統", command=on_close, width=16).pack()
+    footer = tk.Frame(root, bg=BG)
+    footer.pack(fill="x", padx=28, pady=(0, 20))
+    stop_btn = tk.Button(
+        footer, text="結束系統", command=on_close, font=("Microsoft JhengHei", 10, "bold"),
+        bg=BLUE, fg="white", activebackground=BLUE_DARK, activeforeground="white",
+        relief="flat", padx=16, pady=6, cursor="hand2",
+    )
+    stop_btn.pack(anchor="e")
+
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.mainloop()
 

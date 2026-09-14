@@ -38,6 +38,7 @@ jobs:
       - name: 打包成執行檔
         run: >
           pyinstaller --noconsole --onedir --name GraduationCheck
+          --icon static/icon.ico
           --contents-directory .
           --add-data "templates;templates"
           --add-data "static;static"
