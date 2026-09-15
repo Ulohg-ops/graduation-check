@@ -546,13 +546,14 @@ def _consumed_required_codes(
 
     這種課號前綴比對也要有「只消耗到門檻為止」的上限：這幾項都各自有自己的學分門檻（該筆
     required_courses 項目的 `credits`，例如外文6學分、通識14學分），真實成績單裡符合前綴的課
-    學分加總常常超過這個數字（例如外文修了大一英文6學分又修了日文3學分，通識超修2學分）。但跟
-    M選N分組不一樣的是，這種超修「不能」流向選修學分——選修學分只能是本系專業課程或應修科目表
-    列出的必修/必選修課程超修的部分，通識/外文/國文這種共同必修categories多修的課不算數（既不是
-    必修、也不是選修，單純不列入這兩個子門檻，但還是算在總學分裡）。所以超過門檻的部分只從
-    consumed排除、另外歸進 excluded 集合，_credit_breakdown 要把這個集合也從選修學分池扣掉。
-    門檻是0（例如體育、服務學習課程本身沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有
-    「多少算超修」的基準可以拿來切。
+    學分加總常常超過這個數字（例如外文修了大一英文6學分又修了日文3學分，通識超修2學分）。跟
+    M選N分組不一樣的是，這種超修原則上「不能」流向選修學分——選修學分只能是本系專業課程或應修
+    科目表列出的必修/必選修課程超修的部分，國文/外文這種共同必修categories多修的課不算數（既不是
+    必修、也不是選修，單純不列入這兩個子門檻，但還是算在總學分裡），超過門檻的部分從consumed
+    排除、另外歸進 excluded 集合，_credit_breakdown 要把這個集合也從選修學分池扣掉。**通識課程是
+    例外**：教務處確認通識多修的部分可以計入選修學分（跟M選N分組超修一樣），所以通識超修的課
+    不進excluded，直接留給_credit_breakdown當選修學分計算。門檻是0（例如體育、服務學習課程本身
+    沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有「多少算超修」的基準可以拿來切。
 
     回傳 (consumed, excluded, group_consumed)：consumed 是必修學分池的課號，excluded 是「不算
     必修、但也不能算選修」的超修課號（目前只有課號前綴超修這一種情況），group_consumed 是
@@ -579,6 +580,7 @@ def _consumed_required_codes(
             if not prefixes:
                 continue
             threshold = course.get("credits") or 0
+            is_general_education = "通識" in (course.get("name") or "")
             matched = [
                 c for c in passed_courses
                 if c["code"] and c["code"] not in consumed and any(c["code"].startswith(p) for p in prefixes)
@@ -591,8 +593,11 @@ def _consumed_required_codes(
                 if accumulated < threshold:
                     consumed.add(c["code"])
                     accumulated += c["credit"]
-                else:
+                elif not is_general_education:
                     excluded.add(c["code"])
+                # 通識超修：不加進consumed（不算必修）也不加進excluded（不會被排除在選修外），
+                # 直接留在consumed/excluded之外，_credit_breakdown的elective_courses自然就會
+                # 把它算進選修學分。
 
     return consumed, excluded, group_consumed
 
@@ -603,9 +608,10 @@ def _credit_breakdown(
     """把成績單切成「必修學分」跟「選修學分」兩塊：必修學分＝被拿去滿足必修/必選修門檻的課學分
     加總（含用課號前綴比對到的國文/外文/通識這種沒登記固定課號的必修項目）；選修學分則是其餘
     已通過課程扣掉「共同必修超修」（excluded，見_consumed_required_codes說明）後的學分加總——
-    這種超修只能算在總學分裡，不能算選修，選修必須是本系專業課程或必修/必選修超修的部分。
-    `/check` 的必修/選修學分門檻，跟 credit_condition 備註規則（scope="elective"時）要算的
-    「選修來源」，都是同一份切分結果，這裡算一次共用，不用兩邊各自重算。
+    這種超修只能算在總學分裡，不能算選修，選修必須是本系專業課程或必修/必選修超修的部分（通識
+    是例外：通識超修不會進excluded，所以會自然留在這裡被算進選修學分，見_consumed_required_codes
+    的說明）。`/check` 的必修/選修學分門檻，跟 credit_condition 備註規則（scope="elective"時）
+    要算的「選修來源」，都是同一份切分結果，這裡算一次共用，不用兩邊各自重算。
 
     必修學分裡再切出「核心必修學分」（core_required_credit_total）：靠分組（M選N，例如核心
     必選修A/B組、專題必選修）滿足門檻、實際被學生選中的那幾門課的學分加總，是必修學分的子集
