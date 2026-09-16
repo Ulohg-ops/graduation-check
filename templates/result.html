@@ -604,6 +604,7 @@
       '未完成': { bg: 'FFFFC7CE', font: 'FF9C0006' },
       '未達標': { bg: 'FFFFC7CE', font: 'FF9C0006' },
       '錯誤': { bg: 'FFFFC7CE', font: 'FF9C0006' },
+      '無法解析': { bg: 'FFFFC7CE', font: 'FF9C0006' },
       '提醒': { bg: 'FFFFEB9C', font: 'FF9C6500' },
       '不適用': { bg: 'FFFFEB9C', font: 'FF9C6500' },
     };
@@ -613,12 +614,101 @@
     const BORDER_COLOR = 'FFE5E7EB';
     const THIN_BORDER = { style: 'thin', color: { argb: BORDER_COLOR } };
 
+    // 總表（多位同學一起匯出時才加）用的三個小函式：身份標籤、整體通過與否、簡短原因——
+    // 原因文字故意跟buildStudentRows()裡各區塊的判斷邏輯保持一致，只是總表只列「有哪些沒過」
+    // 的短清單，細節（缺哪個科目、差多少學分）要點到那個人自己的工作表才看得到。
+    function buildIdentityLabel(r) {
+      if (r.graduate) return r.graduate.track_label;
+      if (r.minor) return r.minor.name;
+      return '畢業資格';
+    }
+
+    function buildOverallStatus(r) {
+      if (r.error) return '無法解析';
+      if (r.graduate) return r.graduate.passed ? '通過' : '未通過';
+      if (r.minor) return r.minor.passed ? '通過' : '未通過';
+      return r.passed ? '通過' : '未通過';
+    }
+
+    function buildReasonSummary(r) {
+      if (r.error) return r.error;
+      if (r.graduate) {
+        const g = r.graduate;
+        if (g.passed) return '';
+        const reasons = [];
+        if (!g.credit_ok) reasons.push('總學分不足');
+        if (!g.pool_ok) reasons.push('課程池未達標');
+        if (g.require_domain_each && !g.domain_ok) reasons.push('化工／材料領域未達標');
+        if (!g.seminar_ok) reasons.push('書報討論學期數不足');
+        if (!g.topics_ok) reasons.push('專題研究學期數不足');
+        if (g.industry_topics_min_semesters && !g.industry_topics_ok) reasons.push('產業專題研究學期數不足');
+        return reasons.join('、');
+      }
+      if (r.minor) {
+        const m = r.minor;
+        if (m.passed) return '';
+        const reasons = [];
+        if (m.missing_required.length) reasons.push(`還沒通過：${m.missing_required.map((x) => x.name).join('、')}`);
+        if (m.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
+        return reasons.join('；');
+      }
+      if (r.passed) return '';
+      const reasons = [];
+      if (!r.credit_ok) reasons.push('學分不足');
+      if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
+      if (r.core_required_credits && !r.core_required_credit_ok) reasons.push('核心必修學分不足');
+      if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
+      if (r.missing_required.length) reasons.push('仍有必修科目未通過');
+      if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
+      if (r.unmet_categories.length) reasons.push('教務處另有未完成項目');
+      return reasons.join('、');
+    }
+
     // 每個學生一張獨立的工作表——這樣不管是要看單一個人、還是一次列印多位，Excel原生的
     // 「分頁列印每張工作表」就會自動把每個人分開，不用自己算哪裡該分頁；工作表名稱不能超過
     // 31字元、也不能有 \/*?:[] 這幾個符號，同一批檔名重複時要另外編號避免撞名。
     async function buildWorkbook(resultList) {
       const workbook = new ExcelJS.Workbook();
       const usedNames = new Set();
+
+      // 多位同學一起匯出時，最前面加一張「總表」一眼看完全部人的通過狀態——只匯出單一個人時
+      // 不需要，那份資料自己那張工作表就是全部內容了，多一張總表只是多繞一手。
+      if (resultList.length > 1) {
+        usedNames.add('總表');
+        const summarySheet = workbook.addWorksheet('總表', {
+          views: [{ state: 'frozen', ySplit: 1 }],
+          pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
+        });
+        summarySheet.columns = [
+          { header: '#', key: 'idx', width: 5 },
+          { header: '檔案名稱', key: 'filename', width: 34 },
+          { header: '身份', key: 'identity', width: 20 },
+          { header: '狀態', key: 'status', width: 10 },
+          { header: '總學分', key: 'credit', width: 10 },
+          { header: '備註', key: 'note', width: 60 },
+        ];
+        summarySheet.getRow(1).eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+          cell.alignment = { vertical: 'middle' };
+        });
+        resultList.forEach((r, i) => {
+          const status = buildOverallStatus(r);
+          const row = summarySheet.addRow([
+            i + 1, r.filename, buildIdentityLabel(r), status, r.error ? '' : r.total_credit, buildReasonSummary(r),
+          ]);
+          const style = STATUS_STYLES[status];
+          if (style) {
+            const statusCell = row.getCell(4);
+            statusCell.font = { bold: true, color: { argb: style.font } };
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
+          }
+          row.eachCell((cell) => {
+            cell.border = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
+            cell.alignment = { vertical: 'top', wrapText: true };
+          });
+        });
+      }
 
       resultList.forEach((r) => {
         let base = (r.filename || '結果').replace(/\.[^.]+$/, '').replace(/[\\/*?:\[\]]/g, '_').slice(0, 31) || '結果';
