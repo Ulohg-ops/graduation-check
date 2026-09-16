@@ -4,7 +4,7 @@
 
 ## 安裝與啟動（Windows）
 
-不需要安裝 Python：到 [Releases 頁面](https://github.com/Ulohg-ops/graduation-check/releases/tag/latest) 下載 `graduation-check-windows.zip`，解壓縮後雙擊資料夾裡的 `GraduationCheck.exe` 即可——瀏覽器會自動開啟系統首頁，關掉跳出來的小視窗（或按裡面的「結束系統」）就會停止系統。這個 zip 是 GitHub Actions 每次推到 main 後自動重新打包、覆蓋同一個連結，永遠是最新版。
+不需要安裝 Python：到 [Releases 頁面](https://github.com/Ulohg-ops/graduation-check/releases/tag/latest) 下載單一檔案 `GraduationCheck.exe`，不用解壓縮，雙擊即可——瀏覽器會自動開啟系統首頁，關掉跳出來的小視窗（或按裡面的「結束系統」）就會停止系統。第一次啟動會比之後慢個幾秒（要先解壓縮內建的程式內容到暫存資料夾），是正常現象。這個檔案是 GitHub Actions 每次推到 main 後自動重新打包、覆蓋同一個連結，永遠是最新版；應修科目表規則存在使用者電腦的 `%APPDATA%\GraduationCheck\` 資料夾裡，不會因為下載新版 `.exe` 就被打回原廠設定。
 
 其他系統（Mac/Linux），或想直接跑原始碼：
 
@@ -63,6 +63,8 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ### 規則同步（多台電腦）
 
 每台電腦的規則資料（`rules.yaml`、`graduate_rules.yaml`）是各自獨立的，沒有雲端同步。大學部/輔系/雙主修的規則（`rules.yaml`）可以在「分組與學年度設定」分頁用「匯出規則」下載、到另一台電腦「匯入規則」上傳——匯入是整份覆蓋，會先自動備份原本的 `rules.yaml.bak`。**碩博班的規則（`graduate_rules.yaml`）目前沒有匯出/匯入功能**，要同步的話得手動複製這個檔案過去。
+
+用 `GraduationCheck.exe` 執行時，這兩個檔案存在 `%APPDATA%\GraduationCheck\`（不是跟 .exe 放在一起），手動複製要去那裡找；用原始碼直接跑（`python -m uvicorn ...`）則跟以前一樣，就在專案資料夾裡。
 
 ## 應修科目表代碼對照（畢業審核紀錄表用）
 

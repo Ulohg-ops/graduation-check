@@ -43,10 +43,14 @@ jobs:
         run: echo "${GITHUB_SHA:0:7} (build $(date -u +%Y-%m-%d))" > version.txt
 
       - name: 打包成執行檔
+        # --onefile：整個程式（含Python直譯器、uvicorn、pdfplumber、樣板、樣式）都包進單一
+        # 一個.exe，使用者不會看到一堆散落的檔案/資料夾，只有一個檔案可以下載、雙擊。
+        # 代價是每次啟動都要先把bundle內容解壓縮到暫存資料夾，開啟速度比--onedir慢個幾秒，
+        # 換來「不要跟一整個資料夾放在一起」——rules.yaml/graduate_rules.yaml這些會被修改、
+        # 需要跨次執行持續存在的資料，main.py裡已經改成存在%APPDATA%，不受這裡影響。
         run: >
-          pyinstaller --noconsole --onedir --name GraduationCheck
+          pyinstaller --noconsole --onefile --name GraduationCheck
           --icon static/icon.ico
-          --contents-directory .
           --add-data "templates;templates"
           --add-data "static;static"
           --add-data "rules.yaml;."
@@ -56,9 +60,6 @@ jobs:
           --collect-all pdfplumber
           launcher.py
 
-      - name: 壓縮成zip
-        run: Compress-Archive -Path dist/GraduationCheck/* -DestinationPath graduation-check-windows.zip
-
       - name: 更新「最新版本」的Release
         uses: softprops/action-gh-release@v2
         with:
@@ -67,7 +68,10 @@ jobs:
           body: |
             自動打包的 Windows 執行檔，每次程式更新後會自動重新產生、覆蓋這個連結。
 
-            下載 `graduation-check-windows.zip`，解壓縮後雙擊資料夾裡的
-            `GraduationCheck.exe` 即可使用，不需要另外安裝 Python。
-          files: graduation-check-windows.zip
+            下載 `GraduationCheck.exe`，雙擊即可使用，不需要另外安裝 Python、也不需要解壓縮。
+            第一次啟動會比之後幾次稍慢一點（要先解壓縮內建的程式內容到暫存資料夾），是正常現象。
+
+            應修科目表規則存在使用者電腦的 `%APPDATA%\GraduationCheck\` 資料夾裡，不會因為
+            重新下載新版 .exe 就被覆蓋掉。
+          files: dist/GraduationCheck.exe
           make_latest: true

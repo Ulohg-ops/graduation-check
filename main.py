@@ -1,6 +1,8 @@
 import copy
 import io
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -12,33 +14,51 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# 一般用 `python -m uvicorn main:app`／啟動.bat 執行時，__file__ 就在專案資料夾裡，資料放旁邊
-# 沒問題。但打包成 PyInstaller 執行檔後，__file__ 會指向解壓縮用的暫存資料夾（每次執行都不一樣、
-# 關閉就消失），rules.yaml 存在那裡等於每次重開都打回原廠設定。sys.frozen 是 PyInstaller
-# 打包後才會有的旗標，這時候要改成用 sys.executable（.exe本身實際的位置）當基準，資料才會
-# 跟著.exe放在同一個資料夾、真的能持久保存、也才是使用者「查看檔案」時看得到的地方。
+# 一般用 `python -m uvicorn main:app`／啟動.bat 執行時，__file__ 就在專案資料夾裡，唯讀資源
+# （templates/static）跟會被修改、要持久保存的資料（rules.yaml等）放在同一個地方沒問題。
+# 但打包成單一檔案的PyInstaller執行檔（--onefile）後，兩者不能再用同一個目錄：
+# - RESOURCE_DIR：sys._MEIPASS，PyInstaller在「這次執行」解壓縮唯讀資源的暫存資料夾，每次
+#   執行都是新路徑、程式關掉就消失——只能放bundle進去、不會被改動的東西（樣板、CSS、圖示）。
+# - DATA_DIR：使用者的 %APPDATA%，不會因為.exe被搬到別的地方、或每次重新解壓縮就跟丟資料，
+#   rules.yaml這種要跨次執行持續存在、又會被/admin頁面修改的檔案要放這裡。
+# sys.frozen 是 PyInstaller 打包後才會有的旗標，開發時（直接跑python/uvicorn）兩者是同一個
+# 目錄，行為跟以前一樣。
 if getattr(sys, "frozen", False):
-    BASE_DIR = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = Path(sys._MEIPASS)
+    DATA_DIR = Path(os.environ.get("APPDATA") or Path.home()) / "GraduationCheck"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 else:
-    BASE_DIR = Path(__file__).resolve().parent
-RULES_FILE = BASE_DIR / "rules.yaml"
+    RESOURCE_DIR = Path(__file__).resolve().parent
+    DATA_DIR = RESOURCE_DIR
+
+RULES_FILE = DATA_DIR / "rules.yaml"
+GRADUATE_RULES_FILE = DATA_DIR / "graduate_rules.yaml"
 # 「匯入規則」覆蓋前的備份，只保留最近一次匯入前的版本（不是每次匯入都留一份新檔案），
 # 匯錯檔案的話可以手動把這個複製回 rules.yaml 救回來。
-RULES_BACKUP_FILE = BASE_DIR / "rules.yaml.bak"
+RULES_BACKUP_FILE = DATA_DIR / "rules.yaml.bak"
+
+# 第一次執行（DATA_DIR裡還沒有這兩個檔案）時，把bundle裡打包的預設版本複製過去當起始資料——
+# 不然使用者第一次雙擊執行檔，/admin會找不到任何規則可以編輯。之後每次啟動DATA_DIR裡已經有
+# 檔案了，不會再被bundle裡的版本覆蓋，使用者辛苦設定的規則不會因為重新打包執行檔就被打回原廠。
+for _seed_name in ("rules.yaml", "graduate_rules.yaml"):
+    _dest = DATA_DIR / _seed_name
+    _src = RESOURCE_DIR / _seed_name
+    if not _dest.exists() and _src.exists():
+        shutil.copy(_src, _dest)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB，一般文字型成績單PDF遠小於這個數字，超過大概是傳錯檔案
 MAX_FILES = 30  # 一次最多同時處理幾份，避免有人整個資料夾誤傳上來拖垮伺服器
 
 app = FastAPI(title="化材系畢業學分檢核系統")
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates = Jinja2Templates(directory=str(RESOURCE_DIR / "templates"))
 # 樣式改用本機打包好的 static/tailwind.css（不再用 CDN 版），同仁電腦沒有網路也能正常顯示畫面；
 # 樣板裡新增的 Tailwind class 沒被這份編譯好的CSS涵蓋到的話，要重新用 tailwindcss CLI 打包一次
 # （指令見 static/tailwind_input.css 旁邊，掃描 templates/ 底下用到的 class 重新編譯 tailwind.css）。
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+app.mount("/static", StaticFiles(directory=str(RESOURCE_DIR / "static")), name="static")
 # 樣板裡引用 tailwind.css 時要帶上這個版本號查詢字串（?v=...），不然瀏覽器可能會沿用舊版CSS的
 # 快取，改完樣式、重新編譯tailwind.css之後畫面卻沒更新——用檔案的修改時間當版本號，
 # 每次重新編譯內容一定會變、時間跟著變，剛好順便當成快取破壞用的版本號。
-templates.env.globals["css_version"] = int((BASE_DIR / "static" / "tailwind.css").stat().st_mtime)
+templates.env.globals["css_version"] = int((RESOURCE_DIR / "static" / "tailwind.css").stat().st_mtime)
 
 
 def load_rules() -> dict:
@@ -208,9 +228,6 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         "passed_courses": passed_courses,
         "has_text": has_text,
     }
-
-
-GRADUATE_RULES_FILE = BASE_DIR / "graduate_rules.yaml"
 
 
 def load_graduate_rules() -> dict:

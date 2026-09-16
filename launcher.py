@@ -30,13 +30,15 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open("nul" if sys.platform == "win32" else "/dev/null", "w", encoding="utf-8")
 
-# 跟main.py同一套判斷（見那邊的說明）：打包後要用.exe實際的位置當基準，圖示/版本檔才找得到。
+# 跟main.py同一套判斷（見那邊RESOURCE_DIR/DATA_DIR的說明）：圖示、版本號都是bundle進執行檔、
+# 不會被修改的唯讀資源，用sys._MEIPASS（這次執行的解壓縮暫存資料夾）當基準即可，不需要像
+# rules.yaml那樣放到%APPDATA%持久保存。
 if getattr(sys, "frozen", False):
-    BASE_DIR = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = Path(sys._MEIPASS)
 else:
-    BASE_DIR = Path(__file__).resolve().parent
-ICON_PATH = BASE_DIR / "static" / "icon.ico"
-VERSION_FILE = BASE_DIR / "version.txt"
+    RESOURCE_DIR = Path(__file__).resolve().parent
+ICON_PATH = RESOURCE_DIR / "static" / "icon.ico"
+VERSION_FILE = RESOURCE_DIR / "version.txt"
 
 HOST = "127.0.0.1"
 PORT = 8000
