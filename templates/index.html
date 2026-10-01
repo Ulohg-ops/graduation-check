@@ -22,6 +22,14 @@
         {% endif %}
       </h1>
       <form action="/check" method="post" enctype="multipart/form-data" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
+          <select name="year" class="w-full border rounded-md p-2">
+            {% for y in years %}
+            <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
         {% if program_choices %}
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">身份</label>
@@ -34,14 +42,6 @@
         {% else %}
         <input type="hidden" name="program" value="{{ program }}" />
         {% endif %}
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">入學學年度</label>
-          <select name="year" class="w-full border rounded-md p-2">
-            {% for y in years %}
-            <option value="{{ y }}">{{ y }}</option>
-            {% endfor %}
-          </select>
-        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">上傳成績單 / 畢業審核紀錄表 (PDF，可一次選多個檔案)</label>
           <input type="file" name="files" accept="application/pdf" multiple

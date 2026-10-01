@@ -1,8 +1,9 @@
 {# 碩士班/博士班/工學博士班/逕博四個分頁籤共用這塊：學年度管理、及格分數（成績單解析用，四個學制
-   共用，但跟輔系/雙主修一樣依入學學年度分開設定）。需人工確認項目（結果頁提醒文字）則是各學制
-   獨立一份——碩士班沒有資格考、SCI論文點數、英文能力這些博士班才有的畢業條件，工學博士班的口試
-   委員產業專家規定也不適用其他學制。用current_track_key記得存檔後要跳轉回目前這個分頁籤，
-   grad_year記得存檔後要留在目前這個學年度，不會因為存檔就跳去別的學制分頁或別的學年度。 #}
+   共用，但跟輔系/雙主修一樣依入學學年度分開設定）。手動確認項目（結果頁逐項勾選框，見result.html
+   的☑️手動確認區塊）則是各學制獨立一份——碩士班沒有資格考、SCI論文點數、英文能力這些博士班才有的
+   畢業條件，工學博士班的口試委員產業專家規定也不適用其他學制。用current_track_key記得存檔後要
+   跳轉回目前這個分頁籤，grad_year記得存檔後要留在目前這個學年度，不會因為存檔就跳去別的學制分頁
+   或別的學年度。 #}
 <div class="mb-6 p-4 bg-gray-50 rounded-md border border-gray-200">
   <div class="mb-4">
     <p class="text-xs font-medium text-gray-500 mb-2">學年度（碩士班／博士班／工學博士班／逕博共用同一份學年度清單）</p>
@@ -57,10 +58,10 @@
   </div>
 
   <div>
-    <h3 class="text-xs font-semibold text-gray-600 mb-1">{{ track.label }}需人工確認項目</h3>
+    <h3 class="text-xs font-semibold text-gray-600 mb-1">{{ track.label }}手動確認項目</h3>
     <p class="text-xs text-gray-500 mb-2">
       資格考排名、論文口試、SCI論文點數、英文能力這類無法從成績單自動判斷的畢業條件，
-      會原文列在結果頁提醒使用者，不影響系統的通過／不通過判定。這份清單只屬於
+      會在結果頁變成逐項勾選框，讓使用者手動確認，不影響系統的通過／不通過判定。這份清單只屬於
       {{ grad_year }} 學年度的{{ track.label }}，不會影響其他學制或其他學年度。
     </p>
     {% for i, item in track.manual_review_items %}
@@ -74,13 +75,13 @@
       </form>
     </div>
     {% else %}
-    <p class="text-sm text-gray-400 mb-3">尚未設定任何提醒項目。</p>
+    <p class="text-sm text-gray-400 mb-3">尚未設定任何確認項目。</p>
     {% endfor %}
     <form method="post" action="/admin/graduate/manual_review/add" class="flex items-end gap-2">
       <input type="hidden" name="year" value="{{ grad_year }}" />
       <input type="hidden" name="track" value="{{ current_track_key }}" />
       <div class="flex-1">
-        <label class="block text-xs text-gray-500">新增提醒文字</label>
+        <label class="block text-xs text-gray-500">新增確認項目文字</label>
         <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
       </div>
       <button type="submit" class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">

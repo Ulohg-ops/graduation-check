@@ -317,13 +317,54 @@ def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list
     return rows
 
 
+def _extract_grad_rows_from_audit_record(pdf: pdfplumber.PDF) -> list:
+    """碩博成績單的第二種格式：教務處匯出的「畢業審核紀錄表」（跟大學部主系用的是同一種報表，
+    只是系所欄位多了「碩士班」字樣），表格欄位（課號/課程名稱/學分數/成績/判定/學年學期）
+    的形狀跟大學部完全一樣，直接重用 _extract_course_rows() 掃表格，不用再寫一套一樣的邏輯。
+
+    這份報表每一列的「學年學期」本身就是4碼（例如「1141」＝114學年第1學期），跟另一種格式
+    （學生個人成績一覽表的「第X學年度第X學期」標題列）不一樣的是：學期資訊直接跟著每一筆課程
+    列走，不需要像標題列那樣跨表格、跨分頁延續同一個current_term狀態——也因此不會有標題列
+    剛好卡在分頁交界被pdfplumber漏掉、導致整學期課程被誤判成上一學期的問題（見_extract_
+    grad_course_rows的經驗）。「判定」欄本來就有通過/不通過，也不需要再比對及格分數。
+    """
+    courses = _extract_course_rows(pdf)
+    rows = []
+    for c in courses:
+        term_str = (c.get("term") or "").strip()
+        year = int(term_str[:3]) if len(term_str) == 4 and term_str.isdigit() else None
+        term = int(term_str[3]) if len(term_str) == 4 and term_str.isdigit() else None
+        rows.append(
+            {
+                "code": c["code"],
+                "name": c["name"],
+                "credit": c["credit"],
+                "score": None,
+                "score_text": c["grade"],
+                "passed": c["passed"],
+                "year": year,
+                "term": term,
+            }
+        )
+    return rows
+
+
 def parse_grad_transcript(pdf_bytes: bytes, passing_score: float = 60) -> dict:
-    """從碩博成績單（教務系統匯出的PDF）擷取逐學期課程明細，呼叫端要用try/except包住，理由跟
-    parse_transcript一樣：pdfplumber打開損毀檔案或非PDF檔案時會丟例外。
+    """從碩博成績單PDF擷取逐學期課程明細，呼叫端要用try/except包住，理由跟parse_transcript
+    一樣：pdfplumber打開損毀檔案或非PDF檔案時會丟例外。
+
+    碩博現在收兩種格式，靠報表自己的標題文字分辨該用哪一套解析邏輯，使用者上傳時不用自己選：
+    - 「畢業審核紀錄表」：跟大學部共用的報表格式，見_extract_grad_rows_from_audit_record。
+    - 其餘（教務系統「學生個人成績一覽表」）：見_extract_grad_course_rows，用passing_score
+      自己判斷及格與否。
     """
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        rows = _extract_grad_course_rows(pdf, passing_score)
-        has_text = any((page.extract_text() or "").strip() for page in pdf.pages)
+        full_text = "\n".join((page.extract_text() or "") for page in pdf.pages)
+        if "畢業審核紀錄表" in full_text:
+            rows = _extract_grad_rows_from_audit_record(pdf)
+        else:
+            rows = _extract_grad_course_rows(pdf, passing_score)
+        has_text = bool(full_text.strip())
     return {"rows": rows, "has_text": has_text}
 
 

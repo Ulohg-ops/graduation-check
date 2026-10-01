@@ -212,7 +212,6 @@
         </div>
         {% endif %}
       </div>
-      {% endif %}
 
       <div class="space-y-4">
         {% if r.elective_courses %}
@@ -366,6 +365,7 @@
         {% endif %}
       </div>
       {% endif %}
+      {% endif %}
     </div>
 
     {% if r.minor %}
@@ -480,21 +480,47 @@
         {% endif %}
       </div>
 
-      {% if r.graduate.manual_review_items %}
+      {% set r_index = loop.index0 %}
       <details open class="rounded-lg border border-blue-200 overflow-hidden">
         <summary class="px-3 py-2 bg-blue-50 border-b border-blue-200 text-sm font-medium text-blue-800 cursor-pointer hover:bg-blue-100">
           <span class="inline-flex w-full items-center justify-between gap-2">
-            <span>ℹ️ 需人工確認項目（無法從成績單自動判斷）</span>
+            <span>☑️ 手動確認</span>
+            {% if r.graduate.manual_review_items %}
             <span class="text-xs text-blue-400 font-normal whitespace-nowrap">{{ r.graduate.manual_review_items | length }} 項</span>
+            {% endif %}
           </span>
         </summary>
-        <ul class="divide-y divide-gray-100 bg-white">
-          {% for item in r.graduate.manual_review_items %}
-          <li class="px-3 py-2 text-sm text-gray-700">{{ item }}</li>
-          {% endfor %}
-        </ul>
+        <div class="bg-white">
+          {% if r.graduate.manual_review_items %}
+          <p class="px-3 pt-2 text-xs text-gray-400">系統無法自動判斷，請逐項確認：</p>
+          <ul class="divide-y divide-gray-100">
+            {% for item in r.graduate.manual_review_items %}
+            <li class="px-3 py-2 text-sm text-gray-700">
+              <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" class="manual-review-item-checkbox w-4 h-4 mt-0.5 flex-shrink-0"
+                       data-result-index="{{ r_index }}" data-item-index="{{ loop.index0 }}" />
+                <span>{{ item }}</span>
+              </label>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          <div class="manual-verdict-box p-3 border-t border-gray-100 bg-gray-50" data-manual-box data-index="{{ r_index }}">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">最終結果（手動）</label>
+            <div class="flex items-center gap-5">
+              <label class="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" class="manual-verdict-checkbox w-4 h-4" data-index="{{ r_index }}" data-value="pass" />
+                通過
+              </label>
+              <label class="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" class="manual-verdict-checkbox w-4 h-4" data-index="{{ r_index }}" data-value="fail" />
+                不通過
+              </label>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5">預設都不勾＝尚未確認，會一併帶入匯出的 Excel／PDF。</p>
+          </div>
+        </div>
       </details>
-      {% endif %}
     </div>
     {% endif %}
     {% endfor %}
@@ -531,7 +557,11 @@
 
         if (r.graduate) {
           const g = r.graduate;
-          push('判定結果', `${g.track_label}資格`, g.total_credit, g.passed ? '通過' : '未通過', '');
+          // g.passed只代表系統自動檢查的部分（學分/課程池/領域/學期數）全部達標，不等於真的
+          // 符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，所以
+          // 「系統判定」跟「人工核定結果」分成兩列各自顯示，不要互相覆蓋掉對方的資訊。
+          push('課程門檻（系統判定）', `${g.track_label}課程門檻`, g.total_credit, g.passed ? '達標' : '未達標', '僅計算學分／課程池／領域／學期數，不含資格考等手動項目');
+          push('手動核定結果', `${g.track_label}資格`, '', graduateFinalStatus(g), '');
           push('學分門檻', '總學分', g.total_credit, g.credit_ok ? '達標' : '未達標', `門檻 ${g.min_total_credits} 學分`);
           push('課程池', '六門課程池', g.pool_passed.length, g.pool_ok ? '達標' : '未達標', `門檻至少 ${g.pool_min_pass} 門`);
           for (const c of g.pool_passed) {
@@ -545,9 +575,10 @@
           if (g.industry_topics_min_semesters) {
             push('學期數', '產業專題研究', g.industry_topics_semesters, g.industry_topics_ok ? '達標' : '未達標', `門檻 ${g.industry_topics_min_semesters} 學期`);
           }
-          for (const item of g.manual_review_items) {
-            push('需人工確認', item, '', '提醒', '');
-          }
+          g.manual_review_items.forEach((item, i) => {
+            const checked = (g.manualReviewChecked || [])[i];
+            push('手動確認項目', item, '', checked ? '已確認' : '尚未確認', '');
+          });
         } else if (r.minor) {
           const m = r.minor;
           push('判定結果', `${m.name}資格`, '', m.passed ? '通過' : '未通過', '');
@@ -579,11 +610,23 @@
       return rows;
     }
 
+    // 碩博班g.passed只代表「系統能自動檢查的部分」（學分/課程池/領域/學期數）全部達標，不是
+    // 真的符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，真正的
+    // 最終結果要等人工在畫面上選過「通過/不通過」才算數（g.manualVerdict）。這個函式統一把
+    // 「人工已選 > 尚未選」的優先順序套到Excel的每個地方，不要兩套邏輯各自判斷一次。
+    function graduateFinalStatus(g) {
+      if (g.manualVerdict === 'pass') return '通過';
+      if (g.manualVerdict === 'fail') return '未通過';
+      return '尚未確認';
+    }
+
     // 每份工作表最上面那條合併儲存格的標題列，取代原本CSV裡「檔案名稱/學年度」欄位重複出現。
     function buildTitle(r) {
       if (r.error) return { text: `${r.filename} － 無法檢核`, ok: false };
       if (r.graduate) {
-        return { text: `${r.filename} － ${r.graduate.track_label}資格：${r.graduate.passed ? '通過' : '未通過'}`, ok: r.graduate.passed };
+        const status = graduateFinalStatus(r.graduate);
+        const ok = status === '通過' ? true : (status === '未通過' ? false : null);
+        return { text: `${r.filename} － ${r.graduate.track_label}資格：${status}`, ok };
       }
       if (r.minor) {
         return { text: `${r.filename} － ${r.minor.name}資格：${r.minor.passed ? '通過' : '未通過'}`, ok: r.minor.passed };
@@ -597,6 +640,7 @@
     const STATUS_STYLES = {
       '通過': { bg: 'FFC6EFCE', font: 'FF006100' },
       '已完成': { bg: 'FFC6EFCE', font: 'FF006100' },
+      '已確認': { bg: 'FFC6EFCE', font: 'FF006100' },
       '已認列': { bg: 'FFC6EFCE', font: 'FF006100' },
       '達標': { bg: 'FFC6EFCE', font: 'FF006100' },
       '未通過': { bg: 'FFFFC7CE', font: 'FF9C0006' },
@@ -607,10 +651,12 @@
       '無法解析': { bg: 'FFFFC7CE', font: 'FF9C0006' },
       '提醒': { bg: 'FFFFEB9C', font: 'FF9C6500' },
       '不適用': { bg: 'FFFFEB9C', font: 'FF9C6500' },
+      '尚未確認': { bg: 'FFFFEB9C', font: 'FF9C6500' },
     };
     const HEADER_FILL = 'FF374151';
     const TITLE_FILL_OK = 'FF16A34A';
     const TITLE_FILL_FAIL = 'FFDC2626';
+    const TITLE_FILL_PENDING = 'FFD97706';
     const BORDER_COLOR = 'FFE5E7EB';
     const THIN_BORDER = { style: 'thin', color: { argb: BORDER_COLOR } };
 
@@ -625,7 +671,7 @@
 
     function buildOverallStatus(r) {
       if (r.error) return '無法解析';
-      if (r.graduate) return r.graduate.passed ? '通過' : '未通過';
+      if (r.graduate) return graduateFinalStatus(r.graduate);
       if (r.minor) return r.minor.passed ? '通過' : '未通過';
       return r.passed ? '通過' : '未通過';
     }
@@ -634,7 +680,8 @@
       if (r.error) return r.error;
       if (r.graduate) {
         const g = r.graduate;
-        if (g.passed) return '';
+        const status = graduateFinalStatus(g);
+        if (status === '通過') return '';
         const reasons = [];
         if (!g.credit_ok) reasons.push('總學分不足');
         if (!g.pool_ok) reasons.push('課程池未達標');
@@ -642,6 +689,7 @@
         if (!g.seminar_ok) reasons.push('書報討論學期數不足');
         if (!g.topics_ok) reasons.push('專題研究學期數不足');
         if (g.industry_topics_min_semesters && !g.industry_topics_ok) reasons.push('產業專題研究學期數不足');
+        if (status === '尚未確認') reasons.push('資格考／論文點數／英文能力等項目尚待手動確認');
         return reasons.join('、');
       }
       if (r.minor) {
@@ -738,7 +786,10 @@
         const titleCell = sheet.getCell(1, 1);
         titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
         titleCell.alignment = { vertical: 'middle' };
-        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: title.ok ? TITLE_FILL_OK : TITLE_FILL_FAIL } };
+        titleCell.fill = {
+          type: 'pattern', pattern: 'solid',
+          fgColor: { argb: title.ok === true ? TITLE_FILL_OK : title.ok === false ? TITLE_FILL_FAIL : TITLE_FILL_PENDING },
+        };
         sheet.getRow(1).height = 26;
 
         const headerRow = sheet.getRow(2);
@@ -789,6 +840,48 @@
         const r = results[Number(btn.dataset.index)];
         const safeName = r.filename.replace(/[\\/:*?"<>|]/g, '_');
         downloadWorkbook([r], `畢業學分檢核結果_${safeName}.xlsx`);
+      });
+    });
+
+    // 碩博班的「最終核定結果」是純前端狀態（沒有資料庫可以存，這個系統本來就是上傳PDF即看即
+    // 丟）：勾選框改變時直接寫回results陣列對應那筆的graduate.manualVerdict，Excel匯出
+    // （buildOverallStatus/buildTitle/buildReasonSummary/buildStudentRows，見graduateFinalStatus）
+    // 都是讀同一份results陣列，勾了之後馬上就會反映在匯出的檔案裡，不用另外同步。
+    // 「通過」「不通過」兩個勾選框互斥（勾一個要自動取消另一個），兩個都不勾就是預設的
+    // 「尚未確認」，不用額外畫第三個選項。
+    document.querySelectorAll('.manual-verdict-checkbox').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const index = cb.dataset.index;
+        const group = document.querySelectorAll(`.manual-verdict-checkbox[data-index="${index}"]`);
+        const box = cb.closest('[data-manual-box]');
+        let value = null;
+        if (cb.checked) {
+          group.forEach((other) => { if (other !== cb) other.checked = false; });
+          value = cb.dataset.value;
+        }
+        const r = results[Number(index)];
+        if (r && r.graduate) r.graduate.manualVerdict = value;
+        if (box) {
+          box.classList.remove('border-gray-200', 'bg-gray-50', 'border-green-200', 'bg-green-50', 'border-red-200', 'bg-red-50');
+          if (value === 'pass') box.classList.add('border-green-200', 'bg-green-50');
+          else if (value === 'fail') box.classList.add('border-red-200', 'bg-red-50');
+          else box.classList.add('border-gray-200', 'bg-gray-50');
+        }
+      });
+    });
+
+    // 資格考、論文點數、英文能力這類「需人工確認項目」，原本只是列出文字提醒，現在改成逐項
+    // 勾選框——勾選狀態同樣只存在前端的results陣列（graduate.manualReviewChecked，跟題目
+    // 順序對應的布林陣列），預設全部未勾；buildStudentRows()匯出Excel時會讀這個陣列，
+    // 把每一項標成「已確認」或「尚未確認」，不再是單純的「提醒」文字。
+    document.querySelectorAll('.manual-review-item-checkbox').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const r = results[Number(cb.dataset.resultIndex)];
+        if (!r || !r.graduate) return;
+        if (!r.graduate.manualReviewChecked) {
+          r.graduate.manualReviewChecked = r.graduate.manual_review_items.map(() => false);
+        }
+        r.graduate.manualReviewChecked[Number(cb.dataset.itemIndex)] = cb.checked;
       });
     });
 

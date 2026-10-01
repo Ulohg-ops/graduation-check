@@ -8,9 +8,13 @@
        class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'main' else 'text-gray-500' }}">
       大學部應修科目表
     </a>
-    <a href="/admin/programs"
-       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'programs' else 'text-gray-500' }}">
-      輔系／雙主修／研究所
+    <a href="/admin/programs?tab=minor"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'minor_double' else 'text-gray-500' }}">
+      輔系／雙主修
+    </a>
+    <a href="/admin/programs?tab=master"
+       class="px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if admin_section == 'grad' else 'text-gray-500' }}">
+      碩／博士班
     </a>
   </nav>
 </header>

@@ -3,33 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>化材系畢業學分檢核系統 - 輔系／雙主修／研究所</title>
+  <title>化材系畢業學分檢核系統 - {{ '輔系／雙主修' if active_tab in ('minor', 'double_major') else '碩／博士班' }}</title>
   <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
   {% include "_admin_head_style.html" %}
 </head>
 {% import "_course_input_macro.html" as macros %}
 <body class="bg-gray-50 min-h-screen">
-  {% set admin_section = 'programs' %}
+  {# 這個路由底下其實是兩個獨立區塊（輔系／雙主修、碩／博士班），跟上傳頁一樣各自是導覽列上
+     獨立的一個入口（見_admin_nav.html），只是後端剛好共用同一個/admin/programs路由跟樣板，
+     用目前的tab判斷現在是哪一區塊，不是真的分成兩個網址。 #}
+  {% set admin_section = 'minor_double' if active_tab in ('minor', 'double_major') else 'grad' %}
   {% include "_admin_nav.html" %}
 
   <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
 
-    <h1 class="text-xl font-bold mb-4">輔系／雙主修／研究所課程分類管理</h1>
+    <h1 class="text-xl font-bold mb-4">{{ '輔系／雙主修管理' if admin_section == 'minor_double' else '碩／博士班管理' }}</h1>
 
-    {% if not years %}
+    {% if not years and admin_section == 'minor_double' %}
     <p class="text-gray-500 text-sm mb-4">
       輔系、雙主修的規則都掛在學年度底下，請先到
       <a href="/admin" class="text-blue-600 hover:underline">大學部應修科目表</a>
-      建立至少一個學年度，才能開始設定（研究所課程分類不受此限制，可以直接切換到該分頁籤設定）。
+      建立至少一個學年度，才能開始設定。
     </p>
     {% endif %}
 
     <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
-      <nav class="flex gap-1 bg-gray-100 rounded-md p-1">
+      <nav data-subnav="secondary" class="flex gap-1 bg-gray-100 rounded-md p-1" {% if active_tab not in ('minor', 'double_major') %}hidden{% endif %}>
         <button type="button" data-tab-btn="minor"
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == 'minor' else 'text-gray-500' }}">輔系</button>
         <button type="button" data-tab-btn="double_major"
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == 'double_major' else 'text-gray-500' }}">雙主修</button>
+      </nav>
+      <nav data-subnav="grad" class="flex gap-1 bg-gray-100 rounded-md p-1" {% if active_tab not in grad_tracks %}hidden{% endif %}>
         {% for key, track in grad_tracks.items() %}
         <button type="button" data-tab-btn="{{ key }}"
                 class="tab-btn text-sm px-3 py-1.5 rounded-md whitespace-nowrap {{ 'bg-white shadow font-medium text-gray-800' if active_tab == key else 'text-gray-500' }}">{{ track.label }}</button>

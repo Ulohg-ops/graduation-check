@@ -2,8 +2,17 @@
   // 同一頁面裡的分頁籤，靠JS切換顯示/隱藏，不用重新整頁。
   // active_tab 是後端算好的初始分頁籤（例如表單送出後跳轉回來，記得跳回原本在編輯的那個分頁籤）。
   const TAB_KEYS = {{ admin_tab_keys | tojson }};
+  // /admin/programs 底下「輔系／雙主修」「碩／博士班」是導覽列上兩個獨立入口（見
+  // _admin_nav.html），但共用同一個路由/樣板——這裡是分辨目前的tab屬於哪一類，決定要顯示
+  // 哪一組分頁籤按鈕（data-subnav）跟哪一份學年度選單（data-year-group）。admin.html
+  // 沒有這些data-subnav元素，這段邏輯對它沒有影響。
+  const SECONDARY_TABS = ['minor', 'double_major'];
+  function groupOfTab(tab) {
+    return SECONDARY_TABS.includes(tab) ? 'secondary' : 'grad';
+  }
   function activateTab(tab) {
     if (!TAB_KEYS.includes(tab)) tab = TAB_KEYS[0];
+    const group = groupOfTab(tab);
     document.querySelectorAll('[data-tab-panel]').forEach((panel) => {
       panel.hidden = panel.dataset.tabPanel !== tab;
     });
@@ -15,16 +24,18 @@
       btn.classList.toggle('text-gray-800', active);
       btn.classList.toggle('text-gray-500', !active);
     });
+    document.querySelectorAll('[data-subnav]').forEach((nav) => {
+      nav.hidden = nav.dataset.subnav !== group;
+    });
     document.getElementById('year-switch-tab').value = tab;
 
     // /admin/programs 有兩份互不相干的學年度清單（輔系／雙主修用rules.yaml、碩博用
     // graduate_rules.yaml），同時兩個都顯示容易讓人誤會選了哪個學年度會影響到哪些分頁籤——
     // 切到哪個分頁籤，就只顯示那個分頁籤真正在用的學年度選單。admin.html沒有這兩個
     // data-year-group元素，這段對它沒有影響。
-    const isSecondaryTab = tab === 'minor' || tab === 'double_major';
     document.querySelectorAll('[data-year-group]').forEach((el) => {
       const isSecondaryGroup = el.dataset.yearGroup === 'minor_double';
-      el.hidden = isSecondaryGroup !== isSecondaryTab;
+      el.hidden = isSecondaryGroup !== (group === 'secondary');
     });
   }
   document.querySelectorAll('.tab-btn').forEach((btn) => {

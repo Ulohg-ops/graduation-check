@@ -1,5 +1,5 @@
 '113':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
@@ -914,7 +914,7 @@
         - 材料
         in_pool: false
 '112':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
@@ -1829,7 +1829,7 @@
         - 材料
         in_pool: false
 '111':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
@@ -2744,7 +2744,7 @@
         - 材料
         in_pool: false
 '110':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
@@ -3659,7 +3659,7 @@
         - 材料
         in_pool: false
 '114':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
@@ -4574,7 +4574,7 @@
         - 材料
         in_pool: false
 '115':
-  passing_score: 60.0
+  passing_score: 70.0
   tracks:
     master:
       label: 碩士班
