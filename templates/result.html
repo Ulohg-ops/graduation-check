@@ -70,28 +70,21 @@
         檢核結果（{{ year }} 學年度規則，畢業總學分門檻 {{ required_total }} 學分）
         {% endif %}
       </h1>
-      {% if not is_mock %}
+      {% if not is_mock and results|length > 1 %}
       <div class="flex items-center gap-2 no-print">
-        <button id="download-all-pdf"
-                class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">
-          {{ '下載全部 ' ~ results|length ~ ' 份結果 (PDF)' if results|length > 1 else '下載結果 (PDF)' }}
-        </button>
-        {% if results|length > 1 %}
         <button id="download-all-csv"
                 class="text-sm bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-700">
           下載全部 {{ results|length }} 份結果 (Excel)
         </button>
-        {% endif %}
       </div>
       {% endif %}
     </div>
 
     {% if not is_mock %}
     <p class="text-xs text-gray-500 -mt-4 no-print">
-      「下載PDF」是用瀏覽器的列印功能，選「另存為PDF」就能存成排版跟畫面一樣的文件，適合列印或存檔給學生看。
+      每份結果卡片右上角可以下載該份自己的 PDF 或 Excel；PDF是用瀏覽器的列印功能，選「另存為PDF」就能存成排版跟畫面一樣的文件，適合列印或存檔給學生看。
       {% if results|length > 1 %}
-      「下載全部」會把{{ results|length }}份結果一起匯出；每份結果卡片右上角的「下載」則只匯出該份自己的結果。
-      Excel是原始資料表格，「狀態」欄會依通過/未通過自動上底色，適合再拿去篩選或整理。
+      「下載全部」會把{{ results|length }}份結果一起匯出成一份 Excel，「狀態」欄會依通過/未通過自動上底色，適合再拿去篩選或整理。
       {% endif %}
     </p>
     {% endif %}
@@ -188,11 +181,6 @@
             必修學分 {{ r.required_credit_total }} / {{ r.required_credits }}
           </span>
           {% endif %}
-          {% if r.core_required_credits %}
-          <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.core_required_credit_ok else 'border-gray-200 text-gray-700' }}">
-            核心必修學分 {{ r.core_required_credit_total }} / {{ r.core_required_credits }}
-          </span>
-          {% endif %}
           {% if r.elective_credits %}
           <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white border {{ 'border-red-300 text-red-700' if not r.elective_credit_ok else 'border-gray-200 text-gray-700' }}">
             選修學分 {{ r.elective_credit_total }} / {{ r.elective_credits }}
@@ -204,7 +192,6 @@
         <div class="flex flex-wrap gap-1.5 mt-2">
           {% if not r.credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">學分不足</span>{% endif %}
           {% if r.required_credits and not r.required_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">必修學分不足</span>{% endif %}
-          {% if r.core_required_credits and not r.core_required_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">核心必修學分不足</span>{% endif %}
           {% if r.elective_credits and not r.elective_credit_ok %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">選修學分不足</span>{% endif %}
           {% if r.missing_required %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">仍有必修科目未通過</span>{% endif %}
           {% if r.note_results | selectattr('status', 'equalto', 'fail') | list %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">備註規則未符合</span>{% endif %}
@@ -478,6 +465,13 @@
           已通過課程池：{% for c in r.graduate.pool_passed %}{{ c.name }}（{{ c.code }}）{% if not loop.last %}、{% endif %}{% endfor %}
         </p>
         {% endif %}
+        {% if r.graduate.domain_courses %}
+        <p class="text-xs text-gray-500 mt-1">
+          {% for domain, courses in r.graduate.domain_courses.items() %}
+          {{ domain }}領域：{% for c in courses %}{{ c.name }}（{{ c.code }}）{% if not loop.last %}、{% endif %}{% endfor %}{% if not loop.last %}；{% endif %}
+          {% endfor %}
+        </p>
+        {% endif %}
       </div>
 
       {% set r_index = loop.index0 %}
@@ -521,6 +515,63 @@
           </div>
         </div>
       </details>
+
+      {% set failed_courses = r.courses | selectattr('counts_as_fail') | list %}
+      {% if failed_courses %}
+      <details class="rounded-lg border border-red-200 overflow-hidden mt-4">
+        <summary class="px-3 py-2 bg-red-50 border-b border-red-200 text-sm font-medium text-red-800 cursor-pointer hover:bg-red-100">
+          <span class="inline-flex w-full items-center justify-between gap-2">
+            <span>❌ 未通過課程</span>
+            <span class="text-xs text-red-400 font-normal whitespace-nowrap">{{ failed_courses | length }} 科目</span>
+          </span>
+        </summary>
+        <ul class="divide-y divide-gray-100 bg-white">
+          {% for c in failed_courses %}
+          <li class="px-3 py-2 text-sm text-red-700">
+            {{ c.code }}　{{ c.name }}
+            <span class="text-red-400">（{{ c.term_label }}・成績 {{ c.grade }}）</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+
+      {% if r.courses %}
+      <details class="rounded-lg border border-gray-200 overflow-hidden mt-4">
+        <summary class="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+          <span class="inline-flex w-full items-center justify-between gap-2">
+            <span>📋 課程明細</span>
+            <span class="text-xs text-gray-400 font-normal whitespace-nowrap">{{ r.courses | length }} 科目</span>
+          </span>
+        </summary>
+        <div class="max-h-80 overflow-y-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead class="sticky top-0 bg-white">
+              <tr class="border-b text-left">
+                <th class="py-1 px-2">學年期</th>
+                <th class="py-1 px-2">課號</th>
+                <th class="py-1 px-2">課程名稱</th>
+                <th class="py-1 px-2">學分</th>
+                <th class="py-1 px-2">成績</th>
+                <th class="py-1 px-2">判定</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in r.courses %}
+              <tr class="border-b {{ '' if c.passed else 'text-red-500' }}">
+                <td class="py-1 px-2 whitespace-nowrap">{{ c.term_label }}</td>
+                <td class="py-1 px-2">{{ c.code }}</td>
+                <td class="py-1 px-2">{{ c.name }}</td>
+                <td class="py-1 px-2">{{ c.credit }}</td>
+                <td class="py-1 px-2">{{ c.grade }}</td>
+                <td class="py-1 px-2">{{ '通過' if c.passed else '不通過' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {% endif %}
     </div>
     {% endif %}
     {% endfor %}
@@ -559,9 +610,9 @@
           const g = r.graduate;
           // g.passed只代表系統自動檢查的部分（學分/課程池/領域/學期數）全部達標，不等於真的
           // 符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，所以
-          // 「系統判定」跟「人工核定結果」分成兩列各自顯示，不要互相覆蓋掉對方的資訊。
+          // 「系統判定」跟「人工核定結果」是兩件事：這裡只列系統判定，人工核定結果已經印在
+          // 這張工作表最上面的標題列（見buildTitle），這裡重複列一次沒有額外資訊、只是佔位。
           push('課程門檻（系統判定）', `${g.track_label}課程門檻`, g.total_credit, g.passed ? '達標' : '未達標', '僅計算學分／課程池／領域／學期數，不含資格考等手動項目');
-          push('手動核定結果', `${g.track_label}資格`, '', graduateFinalStatus(g), '');
           push('學分門檻', '總學分', g.total_credit, g.credit_ok ? '達標' : '未達標', `門檻 ${g.min_total_credits} 學分`);
           push('課程池', '六門課程池', g.pool_passed.length, g.pool_ok ? '達標' : '未達標', `門檻至少 ${g.pool_min_pass} 門`);
           for (const c of g.pool_passed) {
@@ -577,7 +628,7 @@
           }
           g.manual_review_items.forEach((item, i) => {
             const checked = (g.manualReviewChecked || [])[i];
-            push('手動確認項目', item, '', checked ? '已確認' : '尚未確認', '');
+            push('手動確認項目', item, '', checked ? '已確認' : '', '');
           });
         } else if (r.minor) {
           const m = r.minor;
@@ -592,7 +643,6 @@
           push('判定結果', '畢業資格', r.total_credit, r.passed ? '通過' : '未通過', `門檻 ${requiredTotal} 學分`);
           if (!r.credit_ok) push('學分門檻', '總學分', r.total_credit, '未達標', `門檻 ${requiredTotal} 學分`);
           if (r.required_credits && !r.required_credit_ok) push('學分門檻', '必修學分', r.required_credit_total, '未達標', `門檻 ${r.required_credits} 學分`);
-          if (r.core_required_credits && !r.core_required_credit_ok) push('學分門檻', '核心必修學分', r.core_required_credit_total, '未達標', `門檻 ${r.core_required_credits} 學分`);
           if (r.elective_credits && !r.elective_credit_ok) push('學分門檻', '選修學分', r.elective_credit_total, '未達標', `門檻 ${r.elective_credits} 學分`);
           for (const item of r.missing_required) {
             push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
@@ -621,12 +671,16 @@
     }
 
     // 每份工作表最上面那條合併儲存格的標題列，取代原本CSV裡「檔案名稱/學年度」欄位重複出現。
+    // 碩博班還沒手動核定（尚未確認）時，不印「尚未確認」字樣——這一列會印出來讓辦公人員
+    // 核定資格後手寫結果，所以故意留一段空白（底線）讓人有地方寫，而不是先幫他填上字。
+    const TITLE_BLANK_LINE = '＿＿＿＿＿＿＿＿＿＿＿＿';
     function buildTitle(r) {
       if (r.error) return { text: `${r.filename} － 無法檢核`, ok: false };
       if (r.graduate) {
         const status = graduateFinalStatus(r.graduate);
         const ok = status === '通過' ? true : (status === '未通過' ? false : null);
-        return { text: `${r.filename} － ${r.graduate.track_label}資格：${status}`, ok };
+        const statusText = status === '尚未確認' ? TITLE_BLANK_LINE : status;
+        return { text: `${r.filename} － ${r.graduate.track_label}資格：${statusText}`, ok };
       }
       if (r.minor) {
         return { text: `${r.filename} － ${r.minor.name}資格：${r.minor.passed ? '通過' : '未通過'}`, ok: r.minor.passed };
@@ -656,7 +710,9 @@
     const HEADER_FILL = 'FF374151';
     const TITLE_FILL_OK = 'FF16A34A';
     const TITLE_FILL_FAIL = 'FFDC2626';
-    const TITLE_FILL_PENDING = 'FFD97706';
+    // 尚未人工核定時這條標題列是故意留白讓人手寫的空間，不是在警告什麼事，所以用中性灰色，
+    // 不用跟「未通過」搶眼的紅橙色系。
+    const TITLE_FILL_PENDING = 'FF6B7280';
     const BORDER_COLOR = 'FFE5E7EB';
     const THIN_BORDER = { style: 'thin', color: { argb: BORDER_COLOR } };
 
@@ -671,7 +727,12 @@
 
     function buildOverallStatus(r) {
       if (r.error) return '無法解析';
-      if (r.graduate) return graduateFinalStatus(r.graduate);
+      if (r.graduate) {
+        // 碩博還沒手動核定時留白，不印「尚未確認」——這張總表會印出來讓辦公人員逐一核定、
+        // 直接在這張表上填寫結果，跟單一工作表標題列（見buildTitle）同樣的理由。
+        const status = graduateFinalStatus(r.graduate);
+        return status === '尚未確認' ? '' : status;
+      }
       if (r.minor) return r.minor.passed ? '通過' : '未通過';
       return r.passed ? '通過' : '未通過';
     }
@@ -704,7 +765,6 @@
       const reasons = [];
       if (!r.credit_ok) reasons.push('學分不足');
       if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
-      if (r.core_required_credits && !r.core_required_credit_ok) reasons.push('核心必修學分不足');
       if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
       if (r.missing_required.length) reasons.push('仍有必修科目未通過');
       if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
@@ -954,11 +1014,6 @@
 
     window.addEventListener('afterprint', () => {
       restoreAfterPrint?.();
-    });
-
-    document.getElementById('download-all-pdf')?.addEventListener('click', () => {
-      preparePrintCards(resultCards);
-      window.print();
     });
 
     document.querySelectorAll('.download-one-pdf').forEach((btn) => {

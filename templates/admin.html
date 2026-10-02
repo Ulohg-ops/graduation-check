@@ -74,15 +74,6 @@
           </form>
         </div>
         <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-500">核心必修學分門檻（選填）：</span>
-          <form method="post" action="/admin/core_required_credits" class="flex items-center gap-2">
-            <input type="hidden" name="year" value="{{ year }}" />
-            <input type="number" step="1" name="core_required_credits" value="{{ core_required_credits }}"
-                   class="border rounded-md p-1 text-sm w-20" />
-            <button type="submit" class="text-sm text-blue-600 hover:underline">儲存</button>
-          </form>
-        </div>
-        <div class="flex items-center gap-2">
           <span class="text-sm text-gray-500">選修學分門檻（選填）：</span>
           <form method="post" action="/admin/elective_credits" class="flex items-center gap-2">
             <input type="hidden" name="year" value="{{ year }}" />
@@ -93,10 +84,8 @@
         </div>
       </div>
       <p class="text-xs text-gray-400 -mt-2 mb-4">
-        必修/核心必修/選修學分門檻留空或填0代表不檢查這個子項，只看畢業總學分門檻。核心必修學分
-        算的是「分組」（下面科目列表裡標成🔖的核心必選修A/B組、專題必選修這種M選N科目）裡實際
-        被選中那幾門課的學分加總。選修學分的來源限制（例如「至少6學分要CH課號」）在下面
-        「備註規則設定」分頁籤設定。
+        必修/選修學分門檻留空或填0代表不檢查這個子項，只看畢業總學分門檻。選修學分的來源限制
+        （例如「至少6學分要CH課號」）在下面「備註規則設定」分頁籤設定。
       </p>
 
       <details class="mb-4 border border-gray-200 rounded-md">
@@ -222,7 +211,8 @@
             <td class="py-1 pr-2 text-gray-500">{{ c.note }}</td>
             <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
               <a href="/admin?year={{ year }}&edit={{ c.index }}#row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
-              <form method="post" action="/admin/course/delete" class="inline">
+              <form method="post" action="/admin/course/delete" class="inline"
+                    onsubmit="return confirm('刪除科目「{{ c.name }}」？無法復原。')">
                 <input type="hidden" name="year" value="{{ year }}" />
                 <input type="hidden" name="index" value="{{ c.index }}" />
                 <button type="submit" class="text-red-600 hover:underline">刪除</button>
@@ -346,38 +336,6 @@
         </div>
       </div>
       {% endif %}
-
-      <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <p class="text-xs font-medium text-blue-800 mb-1">規則同步（給多台電腦各自安裝時用）</p>
-        <p class="text-xs text-blue-700 mb-3">
-          每台電腦是各自獨立安裝、獨立存一份規則資料，改了不會自動同步到別台電腦。
-          在這裡「匯出規則」下載檔案，傳給同事（Email、USB、共用資料夾都可以，不需要網路），
-          同事在自己電腦的這個頁面「匯入規則」上傳那個檔案，就能覆蓋成一樣的規則設定。
-          <b>匯入是整份覆蓋</b>（所有學年度的規則一起換掉，不是只換有變動的部分），
-          匯入前系統會自動備份現有規則成 <code class="bg-white px-1 rounded">rules.yaml.bak</code>，
-          真的匯錯的話可以請管理者手動把備份檔案復原回來。
-        </p>
-        {% if import_error %}
-        <p class="text-xs text-red-700 font-medium mb-3">
-          ⚠️ 匯入失敗：這份檔案的格式看起來不是有效的規則檔（rules.yaml），沒有覆蓋現有規則。
-        </p>
-        {% endif %}
-        <div class="flex items-center gap-3 flex-wrap">
-          <a href="/admin/rules/export"
-             class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
-            匯出規則（下載 rules.yaml）
-          </a>
-          <form method="post" action="/admin/rules/import" enctype="multipart/form-data"
-                class="flex items-center gap-2 flex-wrap"
-                onsubmit="return confirm('匯入會整份覆蓋掉這台電腦目前所有學年度的規則設定，確定要匯入嗎？（會先自動備份現有規則）')">
-            <input type="hidden" name="year" value="{{ year }}" />
-            <input type="file" name="file" accept=".yaml,.yml" required class="text-sm" />
-            <button type="submit" class="bg-white border border-blue-600 text-blue-600 text-sm px-3 py-1.5 rounded-md hover:bg-blue-50 whitespace-nowrap">
-              匯入規則（整份覆蓋）
-            </button>
-          </form>
-        </div>
-      </div>
 
     </div>
 

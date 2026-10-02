@@ -166,7 +166,8 @@
             <td class="py-1 pr-2 text-gray-500">{{ c.note }}</td>
             <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
               <a href="/admin/programs?year={{ year }}&tab=minor&edit_minor={{ c.index }}#minor-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
-              <form method="post" action="/admin/course/delete" class="inline">
+              <form method="post" action="/admin/course/delete" class="inline"
+                    onsubmit="return confirm('刪除科目「{{ c.name }}」？無法復原。')">
                 <input type="hidden" name="year" value="{{ year }}" />
                 <input type="hidden" name="index" value="{{ c.index }}" />
                 <input type="hidden" name="target" value="minor" />
@@ -499,7 +500,8 @@
             <td class="py-1 pr-2 text-gray-500">{{ c.note }}</td>
             <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
               <a href="/admin/programs?year={{ year }}&tab=double_major&edit_double_major={{ c.index }}#double_major-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
-              <form method="post" action="/admin/course/delete" class="inline">
+              <form method="post" action="/admin/course/delete" class="inline"
+                    onsubmit="return confirm('刪除科目「{{ c.name }}」？無法復原。')">
                 <input type="hidden" name="year" value="{{ year }}" />
                 <input type="hidden" name="index" value="{{ c.index }}" />
                 <input type="hidden" name="target" value="double_major" />
@@ -730,13 +732,6 @@
     <!-- ============ 分頁籤六～九：碩士班／博士班／工學博士班／逕博 ============ -->
     {% for key, track in grad_tracks.items() %}
     <div data-tab-panel="{{ key }}" {% if active_tab != key %}hidden{% endif %}>
-      <p class="text-xs text-gray-500 mb-4">
-        碩博規則存在獨立的graduate_rules.yaml，跟上面幾個分頁籤（輔系／雙主修，存在rules.yaml）
-        是兩份不相干的學年度清單，用上方「學年度（碩士班／博士班／工學博士班／逕博用）」切換。
-        四個學制（碩士班／博士班／工學博士班／逕博）的門檻數字跟課程池／領域對照表都各自獨立，
-        改一個學制不會影響其他學制。實際檢核頁在 <a href="/graduate" class="text-blue-600 hover:underline">/graduate</a>。
-      </p>
-
       {% set current_track_key = key %}
       {% include "_grad_shared_settings.html" %}
 
@@ -842,7 +837,8 @@
               <td class="py-1 pr-2 text-center">{{ '✓' if c.in_pool else '' }}</td>
               <td class="py-1 pr-2 text-right space-x-3 whitespace-nowrap">
                 <a href="/admin/programs?tab={{ key }}&grad_year={{ grad_year }}&edit_grad_track={{ key }}&edit_grad_course={{ c.index }}#grad-{{ key }}-course-row-{{ c.index }}" class="text-blue-600 hover:underline">編輯</a>
-                <form method="post" action="/admin/graduate/course/delete" class="inline">
+                <form method="post" action="/admin/graduate/course/delete" class="inline"
+                      onsubmit="return confirm('刪除科目「{{ c.name }}」？無法復原。')">
                   <input type="hidden" name="year" value="{{ grad_year }}" />
                   <input type="hidden" name="track" value="{{ key }}" />
                   <input type="hidden" name="index" value="{{ c.index }}" />

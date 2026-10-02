@@ -34,8 +34,9 @@ else:
 RULES_FILE = DATA_DIR / "rules.yaml"
 GRADUATE_RULES_FILE = DATA_DIR / "graduate_rules.yaml"
 # 「匯入規則」覆蓋前的備份，只保留最近一次匯入前的版本（不是每次匯入都留一份新檔案），
-# 匯錯檔案的話可以手動把這個複製回 rules.yaml 救回來。
+# 匯錯檔案的話可以手動把這個複製回 rules.yaml / graduate_rules.yaml 救回來。
 RULES_BACKUP_FILE = DATA_DIR / "rules.yaml.bak"
+GRADUATE_RULES_BACKUP_FILE = DATA_DIR / "graduate_rules.yaml.bak"
 
 # 第一次執行（DATA_DIR裡還沒有這兩個檔案）時，把bundle裡打包的預設版本複製過去當起始資料——
 # 不然使用者第一次雙擊執行檔，/admin會找不到任何規則可以編輯。之後每次啟動DATA_DIR裡已經有
@@ -263,6 +264,105 @@ def _parse_grad_score(raw: str, passing_score: float) -> tuple:
     return value, value >= passing_score
 
 
+def _grad_table_column_bounds(table_obj) -> list:
+    """從table的某一列（挑非None儲存格最多的那列，通常是表頭或欄位齊全的課程列）推算出每一欄
+    的x座標分界，供_recover_trailing_grad_rows()用座標比對重組漏抓的課程列。抓不到足夠欄位
+    （少於7條分界＝6欄，正常應該有8欄）就回傳空list，呼叫端要能處理「沒有欄位資訊」的狀況。
+    """
+    best_cells = []
+    for row in table_obj.rows:
+        non_none = [c for c in row.cells if c]
+        if len(non_none) > len(best_cells):
+            best_cells = non_none
+    if len(best_cells) < 6:
+        return []
+    return [c[0] for c in best_cells] + [best_cells[-1][2]]
+
+
+def _recover_trailing_grad_rows(
+    page, table_obj, crop_bottom: float, passing_score: float, current_term: Optional[tuple]
+) -> list:
+    """pdfplumber 的表格框線偵測在頁面底部邊緣不穩定：當表格最後一列的底部框線剛好落在頁尾、
+    沒被偵測成表格的一部分時，extract_tables() 會直接把這一整列資料漏掉（不是學期標題列那種
+    「標題列本身消失」，是連課程列整列都消失），而且漏掉的這一列有時候内容本身還會接著延伸到
+    下一頁開頭（常見於英文課名很長要換行的科目），所以復原到的中文課名/課號/學分/成績通常是
+    完整的，只有英文課名尾段可能被截斷——不影響學分加總或及格判定，只是顯示的課名不完整。
+
+    做法：table偵測到的範圍跟（下一個table開始的地方，或這頁可印內容的下緣）之間那一小段，
+    重新用文字座標掃一次，用「課號欄裡符合課號格式」當作一列的錨點——課號本身在視覺上不一定
+    剛好在那一列的最上緣（常常因為課名欄位換行比較多行，課號反而落在那一列的中間偏下），
+    所以不能直接拿錨點的top當「這一列從這裡開始」，而是用「跟上一個/下一個錨點的中點」切分，
+    每個文字片段歸給top最接近的那個錨點，再把同一欄位、屬於同一個錨點的文字片段接起來組回
+    一筆完整的課程列。
+    """
+    col_bounds = _grad_table_column_bounds(table_obj)
+    if len(col_bounds) < 7:
+        return []
+
+    x0, _, x1, bottom = table_obj.bbox
+    if crop_bottom <= bottom:
+        return []
+    words = page.crop((x0, bottom, x1, crop_bottom)).extract_words()
+    if not words:
+        return []
+
+    def col_index(word) -> int:
+        center = (word["x0"] + word["x1"]) / 2
+        for i in range(len(col_bounds) - 1):
+            if col_bounds[i] <= center < col_bounds[i + 1]:
+                return i
+        return len(col_bounds) - 2
+
+    anchors = sorted(
+        w["top"] for w in words if col_index(w) == 0 and _GRAD_COURSE_CODE_RE.match(w["text"])
+    )
+    if not anchors:
+        return []
+
+    boundaries = (
+        [float("-inf")]
+        + [(anchors[i] + anchors[i + 1]) / 2 for i in range(len(anchors) - 1)]
+        + [float("inf")]
+    )
+
+    recovered = []
+    for i in range(len(anchors)):
+        lo, hi = boundaries[i], boundaries[i + 1]
+        by_col: dict = {}
+        for w in words:
+            if lo <= w["top"] < hi:
+                by_col.setdefault(col_index(w), []).append(w)
+        texts = [
+            "".join(w["text"] for w in sorted(by_col.get(i, []), key=lambda w: (w["top"], w["x0"])))
+            for i in range(len(col_bounds) - 1)
+        ]
+        if len(texts) < 7:
+            continue
+        code = texts[0].strip()
+        if not _GRAD_COURSE_CODE_RE.match(code):
+            continue
+        try:
+            credit = float(texts[5].strip())
+        except ValueError:
+            continue
+        score_text = texts[6].strip()
+        value, passed = _parse_grad_score(score_text, passing_score)
+        recovered.append(
+            {
+                "code": code,
+                "name": texts[2].strip(),
+                "category": texts[3].strip(),
+                "credit": credit,
+                "score": value,
+                "score_text": score_text,
+                "passed": passed,
+                "year": current_term[0] if current_term else None,
+                "term": current_term[1] if current_term else None,
+            }
+        )
+    return recovered
+
+
 def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list:
     """逐學期解析碩博成績單，格式跟大學部『畢業審核紀錄表』完全不同：沒有「判定」欄，而是按學期
     分成一張張表格，中間穿插「第X學年度第X學期」的標題列。pdfplumber在每頁最前面常會把整頁課程
@@ -277,8 +377,10 @@ def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list
     rows = []
     current_term = None
     for page in pdf.pages:
-        for table in page.extract_tables():
-            for row in table:
+        table_objs = page.find_tables()
+        for t_index, table_obj in enumerate(table_objs):
+            codes_in_table = set()
+            for row in table_obj.extract():
                 cells = [(c or "") for c in row]
                 if not cells:
                     continue
@@ -314,6 +416,17 @@ def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list
                         "term": current_term[1] if current_term else None,
                     }
                 )
+                codes_in_table.add(first)
+
+            # 這個table的正常列都掃完、current_term也已經更新到這個table所屬的學期，可以安全地
+            # 拿去補救table底部被切掉漏抓的那幾列——範圍是這個table偵測到的下緣，到下一個table
+            # 開始的地方（同一頁還有下一段學期的話）或這頁的下緣（整頁可印範圍的底部）為止。
+            next_top = table_objs[t_index + 1].bbox[1] if t_index + 1 < len(table_objs) else page.height
+            for recovered_row in _recover_trailing_grad_rows(
+                page, table_obj, next_top, passing_score, current_term
+            ):
+                if recovered_row["code"] not in codes_in_table:
+                    rows.append(recovered_row)
     return rows
 
 
@@ -381,6 +494,9 @@ def _build_graduate_check(rows: list, track: dict) -> dict:
     total_credit = 0.0
     passed_pool_by_code: dict = {}
     domains_covered: set = set()
+    # 一門課可能同時掛化工跟材料兩個領域，所以每個領域各自存一份「課號->課名」，
+    # 不能只存課號集合，不然沒辦法回答「化工領域是靠哪幾門課通過的」這種回溯問題。
+    domain_courses: dict = {}
     seminar_terms: set = set()
     topics_terms: set = set()
     industry_terms: set = set()
@@ -398,7 +514,10 @@ def _build_graduate_check(rows: list, track: dict) -> dict:
 
         course_info = courses_by_code.get(r["code"])
         if course_info:
-            domains_covered.update(course_info.get("domains", []))
+            domains = course_info.get("domains", [])
+            domains_covered.update(domains)
+            for d in domains:
+                domain_courses.setdefault(d, {})[r["code"]] = course_info["name"]
             if r["code"] in pool_codes:
                 passed_pool_by_code[r["code"]] = course_info["name"]
 
@@ -431,6 +550,12 @@ def _build_graduate_check(rows: list, track: dict) -> dict:
         "pool_ok": pool_ok,
         "require_domain_each": track.get("require_domain_each", False),
         "domains_covered": sorted(domains_covered),
+        "domain_courses": {
+            domain: sorted(
+                ({"code": code, "name": name} for code, name in courses.items()), key=lambda c: c["code"]
+            )
+            for domain, courses in domain_courses.items()
+        },
         "domain_ok": domain_ok,
         "seminar_semesters": len(seminar_terms),
         "seminar_min_semesters": track["seminar_min_semesters"],
@@ -455,6 +580,9 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
     rows = parsed["rows"]
     check = _build_graduate_check(rows, track)
 
+    # 依學年期排序（而不是課號）：碩博的判定邏輯（書報討論/專題研究要修幾學期、課程池通過
+    # 門數）本來就是以學期為單位累計的，依時間順序列出課程明細，使用者比較看得出來系統是
+    # 怎麼一學期一學期算出書報討論/專題研究的學期數、哪些課落進課程池。
     courses_display = sorted(
         (
             {
@@ -463,11 +591,21 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
                 "credit": r["credit"],
                 "grade": r["score_text"],
                 "passed": r["passed"],
+                "year": r["year"],
+                "term": r["term"],
+                "term_label": f"{r['year']}-{r['term']}" if r["year"] and r["term"] else "（未標示學期）",
             }
             for r in rows
         ),
-        key=lambda c: c["code"],
+        key=lambda c: (c["year"] or 0, c["term"] or 0, c["code"]),
     )
+    # 同一課號重複修習會出現多筆記錄（例如先通過、後來又選到同一科，教務處備註「重複修習,
+    # 不予採計」判不通過）：只要其中一次真的通過，這門課對學生來說就不是「還沒通過」，不該
+    # 跟著出現在「未通過課程」清單裡誤導使用者以為還欠這一科——但課程明細仍然照實列出每一筆，
+    # 不隱藏教務處原始紀錄。
+    passed_once_codes = {c["code"] for c in courses_display if c["passed"]}
+    for c in courses_display:
+        c["counts_as_fail"] = not c["passed"] and c["code"] not in passed_once_codes
 
     return {
         "filename": filename,
@@ -477,9 +615,6 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
         "required_credits": 0,
         "required_credit_total": 0,
         "required_credit_ok": True,
-        "core_required_credits": 0,
-        "core_required_credit_total": 0,
-        "core_required_credit_ok": True,
         "elective_credits": 0,
         "elective_credit_total": 0,
         "elective_credit_ok": True,
@@ -613,23 +748,18 @@ def _consumed_required_codes(
     不進excluded，直接留給_credit_breakdown當選修學分計算。門檻是0（例如體育、服務學習課程本身
     沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有「多少算超修」的基準可以拿來切。
 
-    回傳 (consumed, excluded, group_consumed)：consumed 是必修學分池的課號，excluded 是「不算
-    必修、但也不能算選修」的超修課號（目前只有課號前綴超修這一種情況），group_consumed 是
-    consumed 裡面「靠分組（M選N，例如核心必選修A/B組、專題必選修）滿足門檻」的那部分課號子集——
-    結果頁的「核心必修學分」統計要拿這個子集去加總學分，跟一般必修（沒有group、每門都要修）分開看。
+    回傳 (consumed, excluded)：consumed 是必修學分池的課號，excluded 是「不算必修、但也不能算
+    選修」的超修課號（目前只有課號前綴超修這一種情況）。
     """
     group_requirements = group_requirements or {}
     plain, groups = _bucket_required_courses(required_courses)
     consumed = {c for course in plain for c in course["codes"]}
-    group_consumed = set()
 
     for group, group_courses in groups.items():
         required_count = group_requirements.get(group, 1)
         all_codes = [c for gc in group_courses for c in gc["codes"]]
         passed_in_group = [c for c in all_codes if c in passed_codes]
-        newly_consumed = passed_in_group[:required_count]
-        consumed.update(newly_consumed)
-        group_consumed.update(newly_consumed)
+        consumed.update(passed_in_group[:required_count])
 
     excluded = set()
     if passed_courses:
@@ -657,7 +787,7 @@ def _consumed_required_codes(
                 # 直接留在consumed/excluded之外，_credit_breakdown的elective_courses自然就會
                 # 把它算進選修學分。
 
-    return consumed, excluded, group_consumed
+    return consumed, excluded
 
 
 def _credit_breakdown(
@@ -670,26 +800,18 @@ def _credit_breakdown(
     是例外：通識超修不會進excluded，所以會自然留在這裡被算進選修學分，見_consumed_required_codes
     的說明）。`/check` 的必修/選修學分門檻，跟 credit_condition 備註規則（scope="elective"時）
     要算的「選修來源」，都是同一份切分結果，這裡算一次共用，不用兩邊各自重算。
-
-    必修學分裡再切出「核心必修學分」（core_required_credit_total）：靠分組（M選N，例如核心
-    必選修A/B組、專題必選修）滿足門檻、實際被學生選中的那幾門課的學分加總，是必修學分的子集
-    （不是額外加總），給結果頁想單獨看「這幾組選修型必修有沒有修夠學分」的門檻用。
     """
-    consumed, excluded, group_consumed = _consumed_required_codes(
+    consumed, excluded = _consumed_required_codes(
         required_courses, group_requirements, passed_codes, passed_courses
     )
     elective_courses = [
         c for c in passed_courses if c["code"] and c["code"] not in consumed and c["code"] not in excluded
     ]
     required_credit_total = sum(c["credit"] for c in passed_courses if c["code"] and c["code"] in consumed)
-    core_required_credit_total = sum(
-        c["credit"] for c in passed_courses if c["code"] and c["code"] in group_consumed
-    )
     elective_credit_total = sum(c["credit"] for c in elective_courses)
     return {
         "elective_courses": elective_courses,
         "required_credit_total": required_credit_total,
-        "core_required_credit_total": core_required_credit_total,
         "elective_credit_total": elective_credit_total,
     }
 
@@ -931,7 +1053,6 @@ def _build_result_entry(
     result: dict,
     required_total: float,
     required_credits: float,
-    core_required_credits: float,
     elective_credits: float,
     required_courses: list,
     group_requirements: dict,
@@ -940,10 +1061,9 @@ def _build_result_entry(
     """把單一份成績單的解析結果，組成結果頁要顯示的一筆資料。
 
     是否「通過」不是只看總學分數字，還要求：應修科目表裡的必修科目（含核心必選修/專題必選修
-    這種M選N分組）全部滿足、必修/核心必修/選修學分子項門檻（required_credits/
-    core_required_credits/elective_credits，選填，對應PDF「必修112學分、選修16學分」這種
-    寫法）達標、應修科目表備註規則（note_rules，例如選修學分來源限制）也沒有不合格的項目，
-    五個條件都成立才算真的達到畢業資格。
+    這種M選N分組）全部滿足、必修/選修學分子項門檻（required_credits/elective_credits，選填，
+    對應PDF「必修112學分、選修16學分」這種寫法）達標、應修科目表備註規則（note_rules，例如
+    選修學分來源限制）也沒有不合格的項目，四個條件都成立才算真的達到畢業資格。
     """
     missing_required = missing_required_courses(required_courses, result["passed_codes"], group_requirements)
     credit_ok = result["total_credit"] >= required_total
@@ -951,9 +1071,6 @@ def _build_result_entry(
         required_courses, group_requirements, result["passed_codes"], result["passed_courses"]
     )
     required_credit_ok = breakdown["required_credit_total"] >= required_credits if required_credits else True
-    core_required_credit_ok = (
-        breakdown["core_required_credit_total"] >= core_required_credits if core_required_credits else True
-    )
     elective_credit_ok = breakdown["elective_credit_total"] >= elective_credits if elective_credits else True
     unmet_categories = [
         u
@@ -972,9 +1089,6 @@ def _build_result_entry(
         "required_credits": required_credits,
         "required_credit_total": breakdown["required_credit_total"],
         "required_credit_ok": required_credit_ok,
-        "core_required_credits": core_required_credits,
-        "core_required_credit_total": breakdown["core_required_credit_total"],
-        "core_required_credit_ok": core_required_credit_ok,
         "elective_credits": elective_credits,
         "elective_credit_total": breakdown["elective_credit_total"],
         "elective_credit_ok": elective_credit_ok,
@@ -986,7 +1100,6 @@ def _build_result_entry(
         "passed": (
             credit_ok
             and required_credit_ok
-            and core_required_credit_ok
             and elective_credit_ok
             and not missing_required
             and not note_rules_failed
@@ -1020,9 +1133,6 @@ def _build_error_entry(filename: str, error: str) -> dict:
         "required_credits": 0,
         "required_credit_total": 0,
         "required_credit_ok": False,
-        "core_required_credits": 0,
-        "core_required_credit_total": 0,
-        "core_required_credit_ok": False,
         "elective_credits": 0,
         "elective_credit_total": 0,
         "elective_credit_ok": False,
@@ -1055,9 +1165,6 @@ def _build_minor_only_entry(filename: str, result: dict, minor_data: dict, fallb
         "required_credits": 0,
         "required_credit_total": 0,
         "required_credit_ok": True,
-        "core_required_credits": 0,
-        "core_required_credit_total": 0,
-        "core_required_credit_ok": True,
         "elective_credits": 0,
         "elective_credit_total": 0,
         "elective_credit_ok": True,
@@ -1147,7 +1254,6 @@ async def check(
 
     required_total = year_data.get("total_credits", 0)
     required_credits = year_data.get("required_credits", 0)
-    core_required_credits = year_data.get("core_required_credits", 0)
     elective_credits = year_data.get("elective_credits", 0)
     required_courses = year_data.get("required_courses", [])
     group_requirements = year_data.get("group_requirements", {})
@@ -1182,7 +1288,6 @@ async def check(
                 result,
                 required_total,
                 required_credits,
-                core_required_credits,
                 elective_credits,
                 required_courses,
                 group_requirements,
@@ -1212,7 +1317,6 @@ async def check(
                     result,
                     required_total,
                     required_credits,
-                    core_required_credits,
                     elective_credits,
                     required_courses,
                     group_requirements,
@@ -1399,11 +1503,9 @@ def _admin_context(
     edit_grad_track: Optional[str] = None,
     edit_grad_course: Optional[int] = None,
     grad_year: Optional[str] = None,
-    import_error: bool = False,
 ) -> dict:
-    """/admin 頁面（GET路由、跟「匯入規則失敗要重新顯示這個頁面」共用）的畫面資料，抽出來共用，
-    這樣匯入規則失敗時能重新顯示完整頁面內容（帶錯誤訊息），不用整個複製一份GET路由的邏輯。
-    """
+    """/admin、/admin/programs 兩個頁面共用的畫面資料，抽出來一起算省得各自重算一次年度/課程
+    解析邏輯。"""
     rules = load_rules()
     years, selected_year, year_data = _resolve_year(rules, year)
 
@@ -1468,7 +1570,6 @@ def _admin_context(
         "year": selected_year,
         "total_credits": year_data.get("total_credits", 0),
         "required_credits": year_data.get("required_credits", 0),
-        "core_required_credits": year_data.get("core_required_credits", 0),
         "elective_credits": year_data.get("elective_credits", 0),
         "required_courses": required_courses,
         "course_sections": course_sections,
@@ -1484,7 +1585,6 @@ def _admin_context(
         "course_catalog": course_catalog,
         "note_category_options": note_category_options,
         "edit_note_index": edit_note,
-        "import_error": import_error,
         "minor_name": minor_data.get("name") or "輔系",
         "minor_required_courses": minor_required_courses,
         "minor_course_sections": minor_course_sections,
@@ -1800,6 +1900,18 @@ async def admin(
     )
 
 
+@app.get("/admin/sync", response_class=HTMLResponse)
+async def admin_sync(request: Request, import_error: bool = False):
+    """規則同步（匯出/匯入 rules.yaml、graduate_rules.yaml 合併成的一份檔案）是跟特定學年度
+    無關的整機操作，獨立成一頁，不用跟著科目管理／分組設定／備註規則設定擠在同一個
+    「分組與學年度設定」分頁籤裡。"""
+    return templates.TemplateResponse(
+        request,
+        "admin_sync.html",
+        {"import_error": import_error},
+    )
+
+
 @app.get("/admin/programs", response_class=HTMLResponse)
 async def admin_programs(
     request: Request,
@@ -2080,17 +2192,6 @@ async def admin_elective_credits(year: str = Form(...), elective_credits: float 
     return RedirectResponse(f"/admin?year={year}", status_code=303)
 
 
-@app.post("/admin/core_required_credits")
-async def admin_core_required_credits(year: str = Form(...), core_required_credits: float = Form(0)):
-    """核心必修學分門檻：必修學分池裡，靠分組（M選N，例如核心必選修A/B組、專題必選修）滿足
-    門檻、實際被學生選中的那幾門課的學分加總要達到多少，見_credit_breakdown的說明。"""
-    rules = load_rules()
-    year_data = rules.setdefault(year, {"total_credits": 0, "required_courses": []})
-    year_data["core_required_credits"] = core_required_credits
-    save_rules(rules)
-    return RedirectResponse(f"/admin?year={year}", status_code=303)
-
-
 @app.post("/admin/note_rule/add")
 async def admin_note_rule_add(
     year: str = Form(...),
@@ -2153,35 +2254,49 @@ async def admin_note_rule_delete(year: str = Form(...), index: int = Form(...), 
 
 @app.get("/admin/rules/export")
 async def admin_rules_export():
-    """把整份 rules.yaml 包成下載檔，方便系上人員手動同步到其他各自獨立安裝的電腦
-    （這個系統每台電腦是各自獨立一份規則資料，沒有連網同步）。"""
+    """把 rules.yaml（大學部／輔系／雙主修）跟 graduate_rules.yaml（碩／博士班）兩份規則檔
+    包成同一份下載檔，方便系上人員一次同步到其他各自獨立安裝的電腦（這個系統每台電腦是各自
+    獨立一份規則資料，沒有連網同步）——原本是兩份檔案要分開匯出/匯入，合併成一份之後，系上
+    人員只要記得傳一個檔案、按一次匯入就好，不用擔心漏傳其中一份。
+    """
+    combined = yaml.safe_dump(
+        {"rules": load_rules(), "graduate_rules": load_graduate_rules()},
+        allow_unicode=True,
+        sort_keys=False,
+    )
     return Response(
-        content=RULES_FILE.read_bytes(),
+        content=combined,
         media_type="application/x-yaml",
-        headers={"Content-Disposition": "attachment; filename=rules.yaml"},
+        headers={"Content-Disposition": "attachment; filename=all_rules.yaml"},
     )
 
 
 @app.post("/admin/rules/import")
-async def admin_rules_import(request: Request, year: str = Form(""), file: UploadFile = File(...)):
-    """上傳一份 rules.yaml 檔案，整份覆蓋掉這台電腦目前的規則設定——用來對照「匯出規則」，
-    讓系上人員可以不用自己去檔案總管找檔案覆蓋，直接在網頁上同步另一台電腦匯出的規則。
+async def admin_rules_import(request: Request, file: UploadFile = File(...)):
+    """上傳一份「匯出規則」下載的檔案，整份覆蓋掉這台電腦目前的 rules.yaml 跟
+    graduate_rules.yaml——用來對照 /admin/rules/export，讓系上人員可以不用自己去檔案總管找
+    檔案覆蓋，直接在網頁上同步另一台電腦匯出的規則。
 
     整份覆蓋是刻意的設計（不是只合併有變動的學年度）：規則之間常常互相關聯（例如某個學年度的
     note_rules、group_requirements要跟該學年度的required_courses對得起來），部分合併容易讓
-    資料兜不起來、產生看起來合理但實際上前後矛盾的規則。覆蓋前一定要先備份現有的
-    rules.yaml（成 rules.yaml.bak），才不會匯錯檔案就再也找不回原本這台電腦的資料。
+    資料兜不起來、產生看起來合理但實際上前後矛盾的規則。覆蓋前一定要先備份現有的兩份規則檔
+    （成 .bak），才不會匯錯檔案就再也找不回原本這台電腦的資料。兩份規則檔要嘛一起換掉、要嘛
+    都不換（檔案格式不對時兩份都不寫），不會變成「一份換了、一份沒換」的中間狀態。
     """
     content = await file.read()
     try:
         parsed = yaml.safe_load(content)
     except yaml.YAMLError:
         parsed = None
-    if not isinstance(parsed, dict):
-        return templates.TemplateResponse(
-            request, "admin.html", _admin_context(year, tab="settings", import_error=True)
-        )
+    if (
+        not isinstance(parsed, dict)
+        or not isinstance(parsed.get("rules"), dict)
+        or not isinstance(parsed.get("graduate_rules"), dict)
+    ):
+        return templates.TemplateResponse(request, "admin_sync.html", {"import_error": True})
 
     RULES_BACKUP_FILE.write_bytes(RULES_FILE.read_bytes())
-    save_rules({str(y): data for y, data in parsed.items()})
-    return RedirectResponse(f"/admin?year={year}&tab=settings", status_code=303)
+    GRADUATE_RULES_BACKUP_FILE.write_bytes(GRADUATE_RULES_FILE.read_bytes())
+    save_rules({str(y): data for y, data in parsed["rules"].items()})
+    save_graduate_rules({str(y): data for y, data in parsed["graduate_rules"].items()})
+    return RedirectResponse("/admin/sync", status_code=303)

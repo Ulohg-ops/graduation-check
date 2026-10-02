@@ -279,7 +279,6 @@
     - EG3004
   required_credits: 112.0
   elective_credits: 16.0
-  core_required_credits: 0.0
   minor:
     name: 化材系輔系
     required_courses:
@@ -866,7 +865,6 @@
     - EG3004
   required_credits: 112
   elective_credits: 16
-  core_required_credits: 0.0
   minor:
     name: 化材系輔系
     required_courses:

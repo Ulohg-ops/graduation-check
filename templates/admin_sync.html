@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>化材系畢業學分檢核系統 - 規則同步</title>
+  <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
+  {% include "_admin_head_style.html" %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+  {% set admin_section = 'sync' %}
+  {% include "_admin_nav.html" %}
+
+  <div class="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
+    <h1 class="text-xl font-bold mb-4">規則同步</h1>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+      <p class="text-xs font-medium text-blue-800 mb-3">給多台電腦各自安裝時用</p>
+      {% if import_error %}
+      <p class="text-xs text-red-700 font-medium mb-3">
+        ⚠️ 匯入失敗：這份檔案的格式看起來不是有效的規則檔，沒有覆蓋現有規則。
+      </p>
+      {% endif %}
+      <div class="flex items-center gap-3 flex-wrap">
+        <a href="/admin/rules/export"
+           class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
+          匯出規則（下載 all_rules.yaml）
+        </a>
+        <form method="post" action="/admin/rules/import" enctype="multipart/form-data"
+              class="flex items-center gap-2 flex-wrap"
+              onsubmit="return confirm('匯入會整份覆蓋掉這台電腦目前所有的規則設定（大學部／輔系／雙主修／碩博班），確定要匯入嗎？（會先自動備份現有規則）')">
+          <input type="file" name="file" accept=".yaml,.yml" required class="text-sm" />
+          <button type="submit" class="bg-white border border-blue-600 text-blue-600 text-sm px-3 py-1.5 rounded-md hover:bg-blue-50 whitespace-nowrap">
+            匯入規則（整份覆蓋）
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
