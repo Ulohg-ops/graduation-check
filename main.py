@@ -115,6 +115,7 @@ def _extract_course_rows(pdf: pdfplumber.PDF) -> list:
                         "grade": next((i for i, c in enumerate(cells) if c == "成績"), None),
                         "verdict": next((i for i, c in enumerate(cells) if c == "判定"), None),
                         "term": next((i for i, c in enumerate(cells) if c == "學年學期"), None),
+                        "note": next((i for i, c in enumerate(cells) if c == "備註"), None),
                     }
                     continue
 
@@ -142,6 +143,11 @@ def _extract_course_rows(pdf: pdfplumber.PDF) -> list:
                         # 兩門課的修課先後順序時會用到；沒有這欄的成績單（例如舊格式）就是 None，
                         # 對應規則會自動退回「只看有沒有通過、不看順序」的舊邏輯。
                         "term": cells[col["term"]] if col["term"] is not None else "",
+                        # 轉系生常見「※抵修[EG1007]」「※抵免[CH1022]」這種備註——學生在原系所
+                        # 修過的課（課號是原系所的，例如CM1002），拿去抵免本系應修科目表裡的
+                        # 另一個課號，教務處自己的判定已經把這個算完成了，見_parse_substitutions()
+                        # 的說明。沒有「備註」欄的成績單（例如舊格式）就是空字串，不影響原本邏輯。
+                        "note": cells[col["note"]] if col["note"] is not None else "",
                     }
                 )
     return courses
@@ -192,6 +198,35 @@ def _extract_unmet_categories(pdf: pdfplumber.PDF) -> list:
     return unmet
 
 
+_SUBSTITUTION_NOTE_RE = re.compile(r"抵[修免]\s*\[([^\]]*)\]")
+_COURSE_CODE_SHAPE_RE = re.compile(r"[A-Z]{2,3}\d{3,5}")
+
+
+def _parse_substitutions(courses: list) -> dict:
+    """轉系生的成績單常見「※抵修[EG1007]」「※抵免[CH1022]」這種備註：學生在原系所修過的課
+    （課號是原系所的，例如CM1002普通化學），拿去抵免本系應修科目表裡的另一門課（EG1007），
+    教務處的「判定」欄本身就已經把這個算完成了，只是那門課在成績單上的課號還是原系所的
+    （CM1002），不是應修科目表登記的課號（EG1007）——我們自己比對應修科目表時只看課號，
+    不知道CM1002其實就是在滿足EG1007，會誤判EG1007還沒通過，這份對照表就是要接住這個情況。
+
+    回傳 {原課號: [被頂替滿足的課號, ...]}，只收通過的課、且備註裡的課號要符合課號格式
+    （避免抓到備註裡其他不相干的文字）。一個備註理論上可能同時列多個課號（不常見，但格式
+    上允許），所以值是list不是單一字串。
+    """
+    substitutions: dict = {}
+    for c in courses:
+        if not c.get("passed") or not c.get("code"):
+            continue
+        note = c.get("note") or ""
+        m = _SUBSTITUTION_NOTE_RE.search(note)
+        if not m:
+            continue
+        targets = _COURSE_CODE_SHAPE_RE.findall(m.group(1))
+        if targets:
+            substitutions.setdefault(c["code"], []).extend(targets)
+    return substitutions
+
+
 def parse_transcript(pdf_bytes: bytes) -> dict:
     """從成績單／畢業審核紀錄表 PDF 擷取課程明細，並加總「已通過」課程的學分數。
 
@@ -221,12 +256,14 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         for c in deduped.values()
         if c["passed"]
     ]
+    substitutions = _parse_substitutions(deduped.values())
     return {
         "courses": courses,
         "total_credit": total_credit,
         "unmet_categories": unmet_categories,
         "passed_codes": passed_codes,
         "passed_courses": passed_courses,
+        "substitutions": substitutions,
         "has_text": has_text,
     }
 
@@ -664,7 +701,9 @@ def _bucket_required_courses(required_courses: list) -> tuple:
     return plain, groups
 
 
-def missing_required_courses(required_courses: list, passed_codes: set, group_requirements: dict = None) -> list:
+def missing_required_courses(
+    required_courses: list, passed_codes: set, group_requirements: dict = None, substitutions: dict = None
+) -> list:
     """把應修科目表（rules.yaml）跟成績單已通過課號比對，抓出還沒通過的必修/選修科目。
 
     有兩種情況要分開處理：
@@ -678,13 +717,19 @@ def missing_required_courses(required_courses: list, passed_codes: set, group_re
        合併三個課號的選項，官方系統只要通過其中一個課號（例如(一)）就已經算滿足最低門檻，
        不要求三部曲全部修完才算選了這一門——用「完整選項」去算會比官方系統更嚴格，判斷錯誤。
        分組名稱、要選幾門都是 /admin 頁面上可以調整的資料，不是寫死的固定清單。
+
+    substitutions（轉系生抵修/抵免，見_parse_substitutions）：原課號對應的目標課號，視同
+    目標課號也已經通過，不然轉系生在原系所修過、拿來抵免的課會因為課號對不上應修科目表而
+    被誤判成還沒通過。
     """
     group_requirements = group_requirements or {}
+    substituted_codes = {t for targets in (substitutions or {}).values() for t in targets}
+    effective_passed_codes = passed_codes | substituted_codes
     plain, groups = _bucket_required_courses(required_courses)
 
     missing = []
     for course in plain:
-        missing_codes = [c for c in course["codes"] if c not in passed_codes]
+        missing_codes = [c for c in course["codes"] if c not in effective_passed_codes]
         if missing_codes:
             missing.append(
                 {
@@ -698,10 +743,10 @@ def missing_required_courses(required_courses: list, passed_codes: set, group_re
     for group, group_courses in groups.items():
         required_count = group_requirements.get(group, 1)
         all_codes = [c for gc in group_courses for c in gc["codes"]]
-        passed_count = sum(1 for c in all_codes if c in passed_codes)
+        passed_count = sum(1 for c in all_codes if c in effective_passed_codes)
         if passed_count >= required_count:
             continue  # 這組已經選夠門數，畢業條件已經滿足，不算缺
-        missing_codes = [c for c in all_codes if c not in passed_codes]
+        missing_codes = [c for c in all_codes if c not in effective_passed_codes]
         options = "、".join(gc["name"] for gc in group_courses)
         if required_count == 1:
             label = f"{group}（{len(group_courses)}選1，需擇一修習且及格）"
@@ -720,7 +765,11 @@ def missing_required_courses(required_courses: list, passed_codes: set, group_re
 
 
 def _consumed_required_codes(
-    required_courses: list, group_requirements: dict, passed_codes: set, passed_courses: list = None
+    required_courses: list,
+    group_requirements: dict,
+    passed_codes: set,
+    passed_courses: list = None,
+    substitutions: dict = None,
 ) -> tuple:
     """算出「被拿去滿足必修/必選修門檻」的課號集合，選修學分來源規則要拿這個集合去排除必修課。
 
@@ -748,18 +797,29 @@ def _consumed_required_codes(
     不進excluded，直接留給_credit_breakdown當選修學分計算。門檻是0（例如體育、服務學習課程本身
     沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有「多少算超修」的基準可以拿來切。
 
+    substitutions（轉系生抵修/抵免，見_parse_substitutions）：原課號對應的目標課號，視同目標
+    課號也已經通過——這裡額外把「目標課號有被consumed」的原課號也併入consumed，不然passed_
+    courses裡這門課用的是原課號，光是consumed裡有目標課號比對不到，學分會被錯放進選修。
+
     回傳 (consumed, excluded)：consumed 是必修學分池的課號，excluded 是「不算必修、但也不能算
     選修」的超修課號（目前只有課號前綴超修這一種情況）。
     """
     group_requirements = group_requirements or {}
+    substitutions = substitutions or {}
+    substituted_codes = {t for targets in substitutions.values() for t in targets}
+    effective_passed_codes = passed_codes | substituted_codes
     plain, groups = _bucket_required_courses(required_courses)
     consumed = {c for course in plain for c in course["codes"]}
 
     for group, group_courses in groups.items():
         required_count = group_requirements.get(group, 1)
         all_codes = [c for gc in group_courses for c in gc["codes"]]
-        passed_in_group = [c for c in all_codes if c in passed_codes]
+        passed_in_group = [c for c in all_codes if c in effective_passed_codes]
         consumed.update(passed_in_group[:required_count])
+
+    for original_code, targets in substitutions.items():
+        if any(t in consumed for t in targets):
+            consumed.add(original_code)
 
     excluded = set()
     if passed_courses:
@@ -791,7 +851,11 @@ def _consumed_required_codes(
 
 
 def _credit_breakdown(
-    required_courses: list, group_requirements: dict, passed_codes: set, passed_courses: list
+    required_courses: list,
+    group_requirements: dict,
+    passed_codes: set,
+    passed_courses: list,
+    substitutions: dict = None,
 ) -> dict:
     """把成績單切成「必修學分」跟「選修學分」兩塊：必修學分＝被拿去滿足必修/必選修門檻的課學分
     加總（含用課號前綴比對到的國文/外文/通識這種沒登記固定課號的必修項目）；選修學分則是其餘
@@ -802,7 +866,7 @@ def _credit_breakdown(
     要算的「選修來源」，都是同一份切分結果，這裡算一次共用，不用兩邊各自重算。
     """
     consumed, excluded = _consumed_required_codes(
-        required_courses, group_requirements, passed_codes, passed_courses
+        required_courses, group_requirements, passed_codes, passed_courses, substitutions
     )
     elective_courses = [
         c for c in passed_courses if c["code"] and c["code"] not in consumed and c["code"] not in excluded
@@ -923,7 +987,9 @@ def _build_minor_result(minor_data: dict, result: dict, fallback_name: str = "�
     required_courses = minor_data.get("required_courses", [])
     group_requirements = minor_data.get("group_requirements", {})
     note_rules = minor_data.get("note_rules", [])
-    missing_required = missing_required_courses(required_courses, result["passed_codes"], group_requirements)
+    missing_required = missing_required_courses(
+        required_courses, result["passed_codes"], group_requirements, result.get("substitutions")
+    )
     note_results = evaluate_note_rules(
         note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
     )
@@ -1065,10 +1131,13 @@ def _build_result_entry(
     對應PDF「必修112學分、選修16學分」這種寫法）達標、應修科目表備註規則（note_rules，例如
     選修學分來源限制）也沒有不合格的項目，四個條件都成立才算真的達到畢業資格。
     """
-    missing_required = missing_required_courses(required_courses, result["passed_codes"], group_requirements)
+    substitutions = result.get("substitutions") or {}
+    missing_required = missing_required_courses(
+        required_courses, result["passed_codes"], group_requirements, substitutions
+    )
     credit_ok = result["total_credit"] >= required_total
     breakdown = _credit_breakdown(
-        required_courses, group_requirements, result["passed_codes"], result["passed_courses"]
+        required_courses, group_requirements, result["passed_codes"], result["passed_courses"], substitutions
     )
     required_credit_ok = breakdown["required_credit_total"] >= required_credits if required_credits else True
     elective_credit_ok = breakdown["elective_credit_total"] >= elective_credits if elective_credits else True
