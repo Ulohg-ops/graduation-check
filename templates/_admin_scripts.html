@@ -43,15 +43,6 @@
   });
   activateTab({{ active_tab | tojson }});
 
-  // 備註規則表單依「類型」只顯示該類型用得到的欄位，避免填錯不相干的欄位造成困惑。
-  function updateNoteRuleFields(select) {
-    const form = select.closest('form');
-    form.querySelectorAll('[data-kind-fields]').forEach((el) => {
-      el.hidden = el.dataset.kindFields !== select.value;
-    });
-  }
-  document.querySelectorAll('.note-rule-form select[name="kind"]').forEach(updateNoteRuleFields);
-
   // 課號/課名搜尋輔助：資料來源是這個學年度應修科目表裡的課（系統目前唯一有的課程清單）。
   // 直接在逗號分隔欄位裡打字就會搜尋——比對的是「最後一個逗號後面」正在打的那一段，
   // 點一下結果就把它換成選到的課號，不用另外開一個搜尋欄位，減少畫面上的輸入框數量。

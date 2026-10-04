@@ -263,8 +263,7 @@
 
       <div>
         <p class="text-xs font-medium text-gray-500 mb-2">
-          分組——設定「這幾科要選滿幾門才算過」（例如核心必選修A組，4選1）。同一組的每一科
-          「分組」欄位要填完全一樣的名稱（打字時會有自動完成建議可選）；不用分組的科目留空即可。
+          分組——設定「這幾科要選滿幾門才算過」（例如核心必選修A組，4選1）。
         </p>
         {% if group_requirements %}
         <div class="flex flex-wrap gap-3 mb-2">
@@ -346,7 +345,6 @@
           應修科目表下方的備註（例如選修學分來源限制），設定後會在檢核結果頁自動顯示完成狀態——規則類型說明
         </summary>
         <div class="mt-2 space-y-1">
-          <p><b>純提醒</b>：只顯示文字，不判斷完成與否，例如「依本校雙主修辦法辦理」。</p>
           <p><b>學分條件</b>：由「範圍」跟「方向」兩個獨立選項組成，四種組合對應四種常見備註形狀：</p>
           <ul class="list-disc list-inside pl-2 space-y-0.5">
             <li>選修學分 + 須屬於：例如「選修16學分中至少6學分要CH課號」</li>
@@ -354,7 +352,6 @@
             <li>不限選修 + 須屬於：例如「通識核心三大領域至少須修習一個領域」</li>
             <li>不限選修 + 不可屬於：例如「整份成績單至少3學分不能是本系課程」</li>
           </ul>
-          <p>「選修學分」範圍是限定在成績單裡「已通過但不在必修清單」的課（選修學分池）當中算；「不限選修」範圍是不管課有沒有被算進必修學分池，直接對整份成績單算。同一段備註如果同時有「須屬於」跟「不可屬於」兩種條件，就開兩條規則、類別填一樣的名稱，結果頁會自動歸在同一段落顯示。</p>
           <p>「類別」是給檢核結果頁分段顯示用的（照PDF原本的一/二/三段落分），同一類別打一樣的名稱即可。</p>
         </div>
       </details>
@@ -365,15 +362,8 @@
         <form method="post" action="/admin/note_rule/update" class="space-y-2 note-rule-form">
           <input type="hidden" name="year" value="{{ year }}" />
           <input type="hidden" name="index" value="{{ r.index }}" />
+          <input type="hidden" name="kind" value="credit_condition" />
           <div class="flex items-end gap-2 flex-wrap">
-            <div>
-              <label class="block text-xs text-gray-500">類型</label>
-              <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                {% for k, label in note_rule_kinds.items() %}
-                <option value="{{ k }}" {% if k == r.kind %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
             <div>
               <label class="block text-xs text-gray-500">類別（結果頁分段顯示用）</label>
               <input type="text" name="category" value="{{ r.category }}" list="note-category-options"
@@ -384,7 +374,7 @@
               <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+          <div class="flex items-end gap-2 flex-wrap">
             <div>
               <label class="block text-xs text-gray-500">範圍</label>
               <select name="scope" class="border rounded-md p-1 text-sm">
@@ -460,15 +450,8 @@
         </summary>
         <form method="post" action="/admin/note_rule/add" class="space-y-2 p-3 bg-white border-t rounded-b-md note-rule-form">
           <input type="hidden" name="year" value="{{ year }}" />
+          <input type="hidden" name="kind" value="credit_condition" />
           <div class="flex items-end gap-2 flex-wrap">
-            <div>
-              <label class="block text-xs text-gray-500">類型</label>
-              <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                {% for k, label in note_rule_kinds.items() %}
-                <option value="{{ k }}">{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
             <div>
               <label class="block text-xs text-gray-500">類別（結果頁分段顯示用）</label>
               <input type="text" name="category" list="note-category-options"
@@ -479,7 +462,7 @@
               <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
             </div>
           </div>
-          <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+          <div class="flex items-end gap-2 flex-wrap">
             <div>
               <label class="block text-xs text-gray-500">範圍</label>
               <select name="scope" class="border rounded-md p-1 text-sm">

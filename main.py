@@ -1,4 +1,5 @@
 import copy
+import csv
 import io
 import os
 import re
@@ -7,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+import openpyxl
 import pdfplumber
 import yaml
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -37,6 +39,11 @@ GRADUATE_RULES_FILE = DATA_DIR / "graduate_rules.yaml"
 # 匯錯檔案的話可以手動把這個複製回 rules.yaml / graduate_rules.yaml 救回來。
 RULES_BACKUP_FILE = DATA_DIR / "rules.yaml.bak"
 GRADUATE_RULES_BACKUP_FILE = DATA_DIR / "graduate_rules.yaml.bak"
+# 預口試已通過名單（學號清單，見load_predefense_ids）：碩博成績單上傳時如果抓到的學號在這份
+# 名單裡，結果頁「預口試通過」那個手動確認勾選框會自動幫使用者打勾。沒有對應的「bundle預設
+# 版本」可以seed——這份名單本來就是系上自己維護、隨時間變動的資料，第一次執行時是空的很正常，
+# 不像rules.yaml需要一份起始規則才能用。
+PREDEFENSE_FILE = DATA_DIR / "predefense_passed.yaml"
 
 # 第一次執行（DATA_DIR裡還沒有這兩個檔案）時，把bundle裡打包的預設版本複製過去當起始資料——
 # 不然使用者第一次雙擊執行檔，/admin會找不到任何規則可以編輯。之後每次啟動DATA_DIR裡已經有
@@ -72,6 +79,21 @@ def load_rules() -> dict:
 def save_rules(rules: dict) -> None:
     with open(RULES_FILE, "w", encoding="utf-8") as f:
         yaml.safe_dump(rules, f, allow_unicode=True, sort_keys=False)
+
+
+def load_predefense_ids() -> set:
+    """讀取預口試已通過的學號名單（見PREDEFENSE_FILE說明）。還沒上傳過名單時檔案不存在，
+    回傳空集合，呼叫端不用另外判斷檔案在不在。"""
+    if not PREDEFENSE_FILE.exists():
+        return set()
+    with open(PREDEFENSE_FILE, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or []
+    return {str(x).strip() for x in data if str(x).strip()}
+
+
+def save_predefense_ids(ids: set) -> None:
+    with open(PREDEFENSE_FILE, "w", encoding="utf-8") as f:
+        yaml.safe_dump(sorted(ids), f, allow_unicode=True)
 
 
 _CREDIT_LABELS = {"學分數", "學分"}
@@ -285,11 +307,14 @@ def save_graduate_rules(data: dict) -> None:
 _GRAD_COURSE_CODE_RE = re.compile(r"^[A-Z]{2,3}\d{3,5}$")
 _GRAD_SEMESTER_RE = re.compile(r"第(\d+)學年度第(\d+)學期")
 
+# 碩博成績單（教務系統匯出的『學生個人成績一覽表』格式，沒有「判定」欄、只有原始成績）的及格
+# 分數，固定70分、四個學制共用，不開放後台調整——校方修業規章就是統一標準，沒有逐年調整的需求。
+GRAD_PASSING_SCORE = 70.0
 
-def _parse_grad_score(raw: str, passing_score: float) -> tuple:
-    """碩博成績單（教務系統匯出的『學生個人成績一覽表』）沒有「判定」欄，只有原始成績，要自己判斷
-    通不通過：「抵免」「一般課程通過」這種文字成績（0學分的通過/不通過制課程、學分抵免）一律視為
-    通過；數字成績跟後台設定的及格分數（passing_score）比較。回傳 (數字成績或None, 是否通過)。
+
+def _parse_grad_score(raw: str) -> tuple:
+    """判斷一筆數字成績通不通過：「抵免」「一般課程通過」這種文字成績（0學分的通過/不通過制
+    課程、學分抵免）一律視為通過；數字成績跟GRAD_PASSING_SCORE比較。回傳(數字成績或None, 是否通過)。
     """
     text = (raw or "").strip()
     if "抵免" in text or "通過" in text:
@@ -298,7 +323,7 @@ def _parse_grad_score(raw: str, passing_score: float) -> tuple:
         value = float(text)
     except ValueError:
         return None, False
-    return value, value >= passing_score
+    return value, value >= GRAD_PASSING_SCORE
 
 
 def _grad_table_column_bounds(table_obj) -> list:
@@ -317,7 +342,7 @@ def _grad_table_column_bounds(table_obj) -> list:
 
 
 def _recover_trailing_grad_rows(
-    page, table_obj, crop_bottom: float, passing_score: float, current_term: Optional[tuple]
+    page, table_obj, crop_bottom: float, current_term: Optional[tuple]
 ) -> list:
     """pdfplumber 的表格框線偵測在頁面底部邊緣不穩定：當表格最後一列的底部框線剛好落在頁尾、
     沒被偵測成表格的一部分時，extract_tables() 會直接把這一整列資料漏掉（不是學期標題列那種
@@ -383,7 +408,7 @@ def _recover_trailing_grad_rows(
         except ValueError:
             continue
         score_text = texts[6].strip()
-        value, passed = _parse_grad_score(score_text, passing_score)
+        value, passed = _parse_grad_score(score_text)
         recovered.append(
             {
                 "code": code,
@@ -400,7 +425,7 @@ def _recover_trailing_grad_rows(
     return recovered
 
 
-def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list:
+def _extract_grad_course_rows(pdf: pdfplumber.PDF) -> list:
     """逐學期解析碩博成績單，格式跟大學部『畢業審核紀錄表』完全不同：沒有「判定」欄，而是按學期
     分成一張張表格，中間穿插「第X學年度第X學期」的標題列。pdfplumber在每頁最前面常會把整頁課程
     誤判成一大列雜訊（一整頁的文字擠在同一個儲存格），但雜訊列的第一欄不會是乾淨的課號格式，
@@ -439,7 +464,7 @@ def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list
                     continue
 
                 score_text = cells[6].replace("\n", "").strip()
-                value, passed = _parse_grad_score(score_text, passing_score)
+                value, passed = _parse_grad_score(score_text)
                 rows.append(
                     {
                         "code": first,
@@ -459,9 +484,7 @@ def _extract_grad_course_rows(pdf: pdfplumber.PDF, passing_score: float) -> list
             # 拿去補救table底部被切掉漏抓的那幾列——範圍是這個table偵測到的下緣，到下一個table
             # 開始的地方（同一頁還有下一段學期的話）或這頁的下緣（整頁可印範圍的底部）為止。
             next_top = table_objs[t_index + 1].bbox[1] if t_index + 1 < len(table_objs) else page.height
-            for recovered_row in _recover_trailing_grad_rows(
-                page, table_obj, next_top, passing_score, current_term
-            ):
+            for recovered_row in _recover_trailing_grad_rows(page, table_obj, next_top, current_term):
                 if recovered_row["code"] not in codes_in_table:
                     rows.append(recovered_row)
     return rows
@@ -499,23 +522,61 @@ def _extract_grad_rows_from_audit_record(pdf: pdfplumber.PDF) -> list:
     return rows
 
 
-def parse_grad_transcript(pdf_bytes: bytes, passing_score: float = 60) -> dict:
+_AUDIT_STUDENT_ID_RE = re.compile(r"學號[：:]\s*(\d+)")
+
+
+def _extract_student_id(pdf: pdfplumber.PDF) -> Optional[str]:
+    """抓這份成績單是哪個學生的學號，給「學生總覽」顯示、預口試名單自動比對用（見PREDEFENSE_
+    FILE的說明）。兩種格式的抓法不一樣：
+
+    1. 「畢業審核紀錄表」：第一頁最上面就有一行「學號：114324076、姓名：OOO、系所：OOO」，
+       直接用正規表達式從文字抓就好。
+    2. 「學生個人成績一覽表」：沒有這種單行格式，是「基本資料」區塊「姓名/學號/性別/身分別/
+       系所/年級」標籤一行、數值緊接著下一行，沒有被pdfplumber偵測成表格，只能用座標比對：
+       找到「學號」兩個字的位置，再找同一欄（x座標相近）、正下方最近的一行文字當作學號值。
+
+    兩種都抓不到時（例如掃描版PDF、或報表格式又改版）回傳None，呼叫端要能接受抓不到學號的
+    狀況，不強制要求一定要有學號才能繼續檢核。
+    """
+    if not pdf.pages:
+        return None
+    page = pdf.pages[0]
+
+    m = _AUDIT_STUDENT_ID_RE.search(page.extract_text() or "")
+    if m:
+        return m.group(1)
+
+    words = page.extract_words()
+    label = next((w for w in words if w["text"] == "學號"), None)
+    if not label:
+        return None
+    candidates = [
+        w for w in words
+        if abs(w["x0"] - label["x0"]) < 5 and label["top"] < w["top"] <= label["top"] + 40
+    ]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda w: w["top"])["text"].strip() or None
+
+
+def parse_grad_transcript(pdf_bytes: bytes) -> dict:
     """從碩博成績單PDF擷取逐學期課程明細，呼叫端要用try/except包住，理由跟parse_transcript
     一樣：pdfplumber打開損毀檔案或非PDF檔案時會丟例外。
 
     碩博現在收兩種格式，靠報表自己的標題文字分辨該用哪一套解析邏輯，使用者上傳時不用自己選：
     - 「畢業審核紀錄表」：跟大學部共用的報表格式，見_extract_grad_rows_from_audit_record。
-    - 其餘（教務系統「學生個人成績一覽表」）：見_extract_grad_course_rows，用passing_score
-      自己判斷及格與否。
+    - 其餘（教務系統「學生個人成績一覽表」）：見_extract_grad_course_rows，用固定的
+      GRAD_PASSING_SCORE（70分）判斷及格與否。
     """
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = "\n".join((page.extract_text() or "") for page in pdf.pages)
         if "畢業審核紀錄表" in full_text:
             rows = _extract_grad_rows_from_audit_record(pdf)
         else:
-            rows = _extract_grad_course_rows(pdf, passing_score)
+            rows = _extract_grad_course_rows(pdf)
         has_text = bool(full_text.strip())
-    return {"rows": rows, "has_text": has_text}
+        student_id = _extract_student_id(pdf)
+    return {"rows": rows, "has_text": has_text, "student_id": student_id}
 
 
 def _build_graduate_check(rows: list, track: dict) -> dict:
@@ -610,8 +671,8 @@ def _build_graduate_check(rows: list, track: dict) -> dict:
 def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data: dict) -> dict:
     """/graduate 上傳頁的結果項，沿用跟_build_result_entry一樣的欄位骨架（見_build_minor_only_entry
     的說明），主系相關欄位全部給「不檢查」的中性值，只有graduate欄位是真的算出來的判定結果。
-    year_data是graduate_rules.yaml裡「某一個入學學年度」底下的那份資料（tracks/passing_score），
-    不是整份多學年度的規則檔。
+    year_data是graduate_rules.yaml裡「某一個入學學年度」底下的那份資料（tracks），不是整份
+    多學年度的規則檔。
     """
     track = year_data["tracks"][track_key]
     rows = parsed["rows"]
@@ -644,6 +705,14 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
     for c in courses_display:
         c["counts_as_fail"] = not c["passed"] and c["code"] not in passed_once_codes
 
+    manual_review_items = track.get("manual_review_items", [])
+    # 學號有在預口試已通過名單裡的話，「預口試通過」那一項手動確認勾選框自動幫忙打勾，省得
+    # 辦公人員每份都要手動點一次（見_extract_student_id兩種格式各自怎麼抓）。抓不到學號時
+    # parsed["student_id"]是None，直接跳過，不會因為抓不到學號就出錯或誤判。
+    student_id = parsed.get("student_id")
+    predefense_passed = bool(student_id) and student_id in load_predefense_ids()
+    manual_review_checked = [predefense_passed and item.startswith("預口試") for item in manual_review_items]
+
     return {
         "filename": filename,
         "error": None,
@@ -651,6 +720,7 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
         "credit_ok": True,
         "required_credits": 0,
         "required_credit_total": 0,
+        "required_credit_by_tier": {},
         "required_credit_ok": True,
         "elective_credits": 0,
         "elective_credit_total": 0,
@@ -667,7 +737,9 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
         "graduate": {
             "track_label": track["label"],
             **check,
-            "manual_review_items": track.get("manual_review_items", []),
+            "manual_review_items": manual_review_items,
+            "manualReviewChecked": manual_review_checked,
+            "student_id": student_id,
         },
     }
 
@@ -801,8 +873,11 @@ def _consumed_required_codes(
     課號也已經通過——這裡額外把「目標課號有被consumed」的原課號也併入consumed，不然passed_
     courses裡這門課用的是原課號，光是consumed裡有目標課號比對不到，學分會被錯放進選修。
 
-    回傳 (consumed, excluded)：consumed 是必修學分池的課號，excluded 是「不算必修、但也不能算
-    選修」的超修課號（目前只有課號前綴超修這一種情況）。
+    回傳 (consumed, excluded, consumed_tier)：consumed 是必修學分池的課號，excluded 是「不算
+    必修、但也不能算選修」的超修課號（目前只有課號前綴超修這一種情況），consumed_tier 是
+    「課號 -> 應修科目表上這門課的層級（tier，例如共同必修/院訂必修/系訂必修）」的對照，給
+    結果頁把必修學分拆成三塊顯示用——拆分依據直接沿用應修科目表已經有的tier欄位（純畫面分類
+    用，見_is_header_row附近tier的說明），不是另外發明一套分類規則。
     """
     group_requirements = group_requirements or {}
     substitutions = substitutions or {}
@@ -810,16 +885,23 @@ def _consumed_required_codes(
     effective_passed_codes = passed_codes | substituted_codes
     plain, groups = _bucket_required_courses(required_courses)
     consumed = {c for course in plain for c in course["codes"]}
+    consumed_tier = {c: course.get("tier") or "" for course in plain for c in course["codes"]}
 
     for group, group_courses in groups.items():
         required_count = group_requirements.get(group, 1)
         all_codes = [c for gc in group_courses for c in gc["codes"]]
+        code_tier = {c: gc.get("tier") or "" for gc in group_courses for c in gc["codes"]}
         passed_in_group = [c for c in all_codes if c in effective_passed_codes]
-        consumed.update(passed_in_group[:required_count])
+        newly_consumed = passed_in_group[:required_count]
+        consumed.update(newly_consumed)
+        for c in newly_consumed:
+            consumed_tier[c] = code_tier.get(c, "")
 
     for original_code, targets in substitutions.items():
-        if any(t in consumed for t in targets):
+        satisfied = next((t for t in targets if t in consumed), None)
+        if satisfied is not None:
             consumed.add(original_code)
+            consumed_tier[original_code] = consumed_tier.get(satisfied, "")
 
     excluded = set()
     if passed_courses:
@@ -835,11 +917,14 @@ def _consumed_required_codes(
             ]
             if threshold <= 0:
                 consumed.update(c["code"] for c in matched)
+                for c in matched:
+                    consumed_tier[c["code"]] = course.get("tier") or ""
                 continue
             accumulated = 0.0
             for c in matched:
                 if accumulated < threshold:
                     consumed.add(c["code"])
+                    consumed_tier[c["code"]] = course.get("tier") or ""
                     accumulated += c["credit"]
                 elif not is_general_education:
                     excluded.add(c["code"])
@@ -847,7 +932,7 @@ def _consumed_required_codes(
                 # 直接留在consumed/excluded之外，_credit_breakdown的elective_courses自然就會
                 # 把它算進選修學分。
 
-    return consumed, excluded
+    return consumed, excluded, consumed_tier
 
 
 def _credit_breakdown(
@@ -864,8 +949,12 @@ def _credit_breakdown(
     是例外：通識超修不會進excluded，所以會自然留在這裡被算進選修學分，見_consumed_required_codes
     的說明）。`/check` 的必修/選修學分門檻，跟 credit_condition 備註規則（scope="elective"時）
     要算的「選修來源」，都是同一份切分結果，這裡算一次共用，不用兩邊各自重算。
+
+    必修學分另外依應修科目表的tier欄位（共同必修/院訂必修/系訂必修）拆成required_credit_by_tier，
+    給結果頁／Excel分開顯示用；沒有設定tier的項目（例如輔系應修科目表沒有tier欄位）會歸在
+    空字串那個key底下。
     """
-    consumed, excluded = _consumed_required_codes(
+    consumed, excluded, consumed_tier = _consumed_required_codes(
         required_courses, group_requirements, passed_codes, passed_courses, substitutions
     )
     elective_courses = [
@@ -873,9 +962,15 @@ def _credit_breakdown(
     ]
     required_credit_total = sum(c["credit"] for c in passed_courses if c["code"] and c["code"] in consumed)
     elective_credit_total = sum(c["credit"] for c in elective_courses)
+    required_credit_by_tier: dict = {}
+    for c in passed_courses:
+        if c["code"] and c["code"] in consumed:
+            tier = consumed_tier.get(c["code"], "")
+            required_credit_by_tier[tier] = required_credit_by_tier.get(tier, 0) + c["credit"]
     return {
         "elective_courses": elective_courses,
         "required_credit_total": required_credit_total,
+        "required_credit_by_tier": required_credit_by_tier,
         "elective_credit_total": elective_credit_total,
     }
 
@@ -886,6 +981,7 @@ def evaluate_note_rules(
     passed_courses: list,
     required_courses: list,
     group_requirements: dict = None,
+    substitutions: dict = None,
 ) -> list:
     """把應修科目表下方的「備註」規則（rules.yaml 的 note_rules）拿去對照成績單，算出每條的完成狀態。
 
@@ -907,9 +1003,9 @@ def evaluate_note_rules(
     - info：像「同一學期不可同時修讀X和Y」「依本校雙主修辦法」這種沒有學期資料/純政策引用、
       根本沒辦法從成績單自動判斷的備註，就只顯示文字提醒，不判斷完成與否。
     """
-    elective_courses = _credit_breakdown(required_courses, group_requirements, passed_codes, passed_courses)[
-        "elective_courses"
-    ]
+    elective_courses = _credit_breakdown(
+        required_courses, group_requirements, passed_codes, passed_courses, substitutions
+    )["elective_courses"]
 
     results = []
     for rule in note_rules:
@@ -991,7 +1087,12 @@ def _build_minor_result(minor_data: dict, result: dict, fallback_name: str = "�
         required_courses, result["passed_codes"], group_requirements, result.get("substitutions")
     )
     note_results = evaluate_note_rules(
-        note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
+        note_rules,
+        result["passed_codes"],
+        result["passed_courses"],
+        required_courses,
+        group_requirements,
+        result.get("substitutions"),
     )
     note_failed = any(n["status"] == "fail" for n in note_results)
     return {
@@ -1147,7 +1248,12 @@ def _build_result_entry(
         if not u["code"].startswith(_DUPLICATED_CATEGORY_PREFIX) and u["code"] not in _DUPLICATED_CATEGORY_CODES
     ]
     note_results = evaluate_note_rules(
-        note_rules, result["passed_codes"], result["passed_courses"], required_courses, group_requirements
+        note_rules,
+        result["passed_codes"],
+        result["passed_courses"],
+        required_courses,
+        group_requirements,
+        substitutions,
     )
     note_rules_failed = any(n["status"] == "fail" for n in note_results)
     return {
@@ -1157,6 +1263,7 @@ def _build_result_entry(
         "credit_ok": credit_ok,
         "required_credits": required_credits,
         "required_credit_total": breakdown["required_credit_total"],
+        "required_credit_by_tier": breakdown["required_credit_by_tier"],
         "required_credit_ok": required_credit_ok,
         "elective_credits": elective_credits,
         "elective_credit_total": breakdown["elective_credit_total"],
@@ -1201,6 +1308,7 @@ def _build_error_entry(filename: str, error: str) -> dict:
         "credit_ok": False,
         "required_credits": 0,
         "required_credit_total": 0,
+        "required_credit_by_tier": {},
         "required_credit_ok": False,
         "elective_credits": 0,
         "elective_credit_total": 0,
@@ -1233,6 +1341,7 @@ def _build_minor_only_entry(filename: str, result: dict, minor_data: dict, fallb
         "credit_ok": True,
         "required_credits": 0,
         "required_credit_total": 0,
+        "required_credit_by_tier": {},
         "required_credit_ok": True,
         "elective_credits": 0,
         "elective_credit_total": 0,
@@ -1425,7 +1534,6 @@ def _normalize_course(index: int, c: dict) -> dict:
 
 
 _NOTE_RULE_KIND_LABELS = {
-    "info": "純提醒",
     "credit_condition": "學分條件",
 }
 
@@ -1648,7 +1756,6 @@ def _admin_context(
         "tier_options": tier_options,
         "edit_index": edit,
         "note_rules": note_rules,
-        "note_rule_kinds": _NOTE_RULE_KIND_LABELS,
         "credit_condition_scopes": _CREDIT_CONDITION_SCOPE_LABELS,
         "credit_condition_directions": _CREDIT_CONDITION_DIRECTION_LABELS,
         "course_catalog": course_catalog,
@@ -1704,10 +1811,10 @@ def _graduate_admin_context(
     return {
         "grad_years": grad_years,
         "grad_year": selected_grad_year,
-        "grad_passing_score": year_data.get("passing_score", 60),
         "grad_tracks": tracks,
         "edit_grad_track": edit_grad_track,
         "edit_grad_course_index": edit_grad_course,
+        "predefense_count": len(load_predefense_ids()),
     }
 
 
@@ -1730,7 +1837,6 @@ async def graduate_check(
     tracks = year_data.get("tracks", {})
     if track not in tracks:
         track = next(iter(tracks), "")
-    passing_score = year_data.get("passing_score", 60)
 
     uploaded = [f for f in files if f.filename][:MAX_FILES]
     results = []
@@ -1746,7 +1852,7 @@ async def graduate_check(
                 )
                 continue
             try:
-                parsed = parse_grad_transcript(pdf_bytes, passing_score)
+                parsed = parse_grad_transcript(pdf_bytes)
             except Exception:
                 results.append(_build_error_entry(f.filename, "這份檔案無法解析，可能不是PDF格式、或檔案已經損毀"))
                 continue
@@ -1774,19 +1880,6 @@ def _grad_domains_from_form(domain_chemical: bool, domain_material: bool) -> lis
     if domain_material:
         domains.append("材料")
     return domains
-
-
-@app.post("/admin/graduate/passing_score")
-async def admin_graduate_passing_score(
-    year: str = Form(...), passing_score: float = Form(...), redirect_tab: str = Form("master")
-):
-    """及格分數是碩博共用設定（成績單解析用，不分學制，但分學年度），跟其他四個學制各自獨立的
-    規則不一樣，表單本身不屬於任何一個學制分頁籤，用redirect_tab記得使用者存檔前停在哪個分頁籤。
-    """
-    grad_rules = load_graduate_rules()
-    grad_rules.setdefault(year, {})["passing_score"] = passing_score
-    save_graduate_rules(grad_rules)
-    return RedirectResponse(f"/admin/programs?tab={redirect_tab}&grad_year={year}", status_code=303)
 
 
 @app.post("/admin/graduate/course/add")
@@ -1902,6 +1995,129 @@ async def admin_graduate_manual_review_delete(year: str = Form(...), track: str 
     return RedirectResponse(f"/admin/programs?tab={track}&grad_year={year}", status_code=303)
 
 
+def _decode_csv_bytes(content: bytes) -> str:
+    """CSV可能是UTF-8（網頁另存）也可能是Big5/cp950（Excel在繁中Windows預設另存成CSV常是這種
+    編碼），用errors='ignore'硬解容易把中文字解成亂碼卻不報錯、沒辦法事後偵測出來，所以依序
+    嚴格嘗試常見編碼，都失敗才退回utf-8+ignore（至少數字、英文字母不會受影響，只有中文字可能
+    跑掉，但學號本身是純數字，不影響比對結果）。
+    """
+    for encoding in ("utf-8-sig", "utf-8", "cp950", "big5"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="ignore")
+
+
+def _ids_from_rows(rows: list) -> set:
+    """從一份「列的清單」（每列是字串cell的list，CSV跟Excel讀出來最後都轉成這個共同形狀）
+    抓學號，不假設學號一定在第一欄：先找表頭列裡哪一欄寫「學號」，找得到就用那一欄；找不到
+    表頭（例如整份檔案就只有學號、沒有欄位名稱那一列）才退回「用第一欄」。Excel常把純數字
+    欄位存成浮點數，像「108324010」存完再打開會變「108324010.0」，這裡順便把這種尾巴去掉。
+    """
+    rows = [row for row in rows if any((cell or "").strip() for cell in row)]
+    if not rows:
+        return set()
+
+    col_index = 0
+    header = rows[0]
+    for i, cell in enumerate(header):
+        if (cell or "").strip() == "學號":
+            col_index = i
+            rows = rows[1:]
+            break
+
+    ids = set()
+    for row in rows:
+        if col_index >= len(row):
+            continue
+        value = (row[col_index] or "").strip()
+        if value.endswith(".0") and value[:-2].isdigit():
+            value = value[:-2]
+        if value and value != "學號":
+            ids.add(value)
+    return ids
+
+
+def _parse_predefense_csv(content: bytes) -> set:
+    return _ids_from_rows(list(csv.reader(_decode_csv_bytes(content).splitlines())))
+
+
+def _parse_predefense_xlsx(content: bytes) -> set:
+    """跟CSV共用同一套「抓學號欄位」邏輯（見_ids_from_rows），只是先把.xlsx的儲存格值轉成
+    字串——openpyxl讀出來的學號如果儲存格格式是「數字」會是int/float而不是字串，int可以直接
+    str()，float要先判斷是不是整數值（123.0要變成"123"而不是"123.0"，不然前面補的.0裁切
+    規則就用不到int，這裡一次轉乾淨）。只讀第一張工作表，夠用、也不用讓使用者多選分頁。
+    """
+    workbook = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    sheet = workbook.worksheets[0]
+    rows = []
+    for row in sheet.iter_rows(values_only=True):
+        cells = []
+        for v in row:
+            if v is None:
+                cells.append("")
+            elif isinstance(v, float) and v.is_integer():
+                cells.append(str(int(v)))
+            else:
+                cells.append(str(v))
+        rows.append(cells)
+    return _ids_from_rows(rows)
+
+
+def _parse_predefense_file(filename: str, content: bytes) -> set:
+    if (filename or "").lower().endswith((".xlsx", ".xlsm")):
+        return _parse_predefense_xlsx(content)
+    return _parse_predefense_csv(content)
+
+
+@app.get("/admin/graduate/predefense", response_class=HTMLResponse)
+async def admin_graduate_predefense_page(request: Request):
+    """預口試已通過名單的獨立管理頁——看目前名單有哪些學號、單筆新增/刪除，或整份CSV覆蓋匯入。
+    跟規則同步拆成/admin/sync一樣，這個清單管理也是獨立一頁，不用擠在碩博設定那個分頁籤裡。
+    """
+    return templates.TemplateResponse(
+        request, "admin_predefense.html", {"predefense_ids": sorted(load_predefense_ids())}
+    )
+
+
+@app.post("/admin/graduate/predefense/import")
+async def admin_graduate_predefense_import(file: UploadFile = File(...)):
+    """上傳預口試已通過學生的學號名單（CSV或Excel都收，見_parse_predefense_file怎麼判斷
+    格式、_ids_from_rows怎麼抓欄位），整份覆蓋掉現有名單——跟規則匯入一樣是「整份覆蓋」而
+    不是累加，避免舊名單裡已經不適用的學號一直留著。這份名單是四個學制、所有學年度共用同
+    一份（預口試通過是學生個人的里程碑，跟報考哪個學制、哪年入學無關），不像課程池/
+    manual_review_items需要分學制維護。
+    """
+    ids = _parse_predefense_file(file.filename, await file.read())
+    save_predefense_ids(ids)
+    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+
+
+@app.post("/admin/graduate/predefense/add")
+async def admin_graduate_predefense_add(student_id: str = Form(...)):
+    student_id = student_id.strip()
+    if student_id:
+        ids = load_predefense_ids()
+        ids.add(student_id)
+        save_predefense_ids(ids)
+    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+
+
+@app.post("/admin/graduate/predefense/delete")
+async def admin_graduate_predefense_delete(student_id: str = Form(...)):
+    ids = load_predefense_ids()
+    ids.discard(student_id)
+    save_predefense_ids(ids)
+    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+
+
+@app.post("/admin/graduate/predefense/clear")
+async def admin_graduate_predefense_clear():
+    save_predefense_ids(set())
+    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+
+
 @app.post("/admin/graduate/year/add")
 async def admin_graduate_year_add(
     year: str = Form(...), copy_from: str = Form(""), redirect_tab: str = Form("master")
@@ -1917,7 +2133,7 @@ async def admin_graduate_year_add(
         if copy_from and copy_from in grad_rules:
             grad_rules[year] = copy.deepcopy(grad_rules[copy_from])
         else:
-            grad_rules[year] = {"passing_score": 60, "tracks": {}}
+            grad_rules[year] = {"tracks": {}}
         save_graduate_rules(grad_rules)
 
     return RedirectResponse(f"/admin/programs?tab={redirect_tab}&grad_year={year}", status_code=303)
@@ -2010,7 +2226,11 @@ async def admin_programs(
 
 
 @app.post("/admin/year/add")
-async def admin_year_add(year: str = Form(...), copy_from: str = Form("")):
+async def admin_year_add(year: str = Form(...), copy_from: str = Form(""), redirect_tab: str = Form("")):
+    """輔系／雙主修的規則是巢狀掛在跟大學部同一個學年度底下（同一份rules.yaml），沒有自己獨立
+    的學年度清單，所以輔系／雙主修頁面要新增學年度時也是呼叫這條路由——redirect_tab記得是從
+    哪個分頁籤按的「新增」，建立完成後要跳回那裡，不是固定跳回大學部頁面。
+    """
     year = year.strip()
     copy_from = copy_from.strip()
     rules = load_rules()
@@ -2030,6 +2250,8 @@ async def admin_year_add(year: str = Form(...), copy_from: str = Form("")):
             }
         save_rules(rules)
 
+    if redirect_tab in _SECONDARY_TARGETS:
+        return RedirectResponse(f"/admin/programs?tab={redirect_tab}&year={year}", status_code=303)
     return RedirectResponse(f"/admin?year={year}", status_code=303)
 
 
@@ -2264,7 +2486,7 @@ async def admin_elective_credits(year: str = Form(...), elective_credits: float 
 @app.post("/admin/note_rule/add")
 async def admin_note_rule_add(
     year: str = Form(...),
-    kind: str = Form("info"),
+    kind: str = Form("credit_condition"),
     category: str = Form(""),
     text: str = Form(...),
     scope: str = Form("elective"),
@@ -2288,7 +2510,7 @@ async def admin_note_rule_add(
 async def admin_note_rule_update(
     year: str = Form(...),
     index: int = Form(...),
-    kind: str = Form("info"),
+    kind: str = Form("credit_condition"),
     category: str = Form(""),
     text: str = Form(...),
     scope: str = Form("elective"),

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>化材系畢業學分檢核系統 - 預口試名單</title>
+  <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
+  {% include "_admin_head_style.html" %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+  {% set admin_section = 'grad' %}
+  {% include "_admin_nav.html" %}
+
+  <div class="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
+    <h1 class="text-xl font-bold mb-1">預口試已通過名單</h1>
+    <p class="text-sm text-gray-500 mb-6">
+      碩博成績單上傳時，如果抓到的學號在這份名單裡，結果頁「預口試通過」那個手動確認勾選框會
+      自動幫忙打勾（還是可以手動取消）。只有「學生個人成績一覽表」格式抓得到學號，畢業審核
+      紀錄表格式沒有這個欄位。這份名單四個學制、所有學年度共用同一份。
+    </p>
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-6">
+      <div class="border border-gray-200 rounded-md p-4">
+        <p class="text-xs font-medium text-gray-500 mb-2">新增單筆學號</p>
+        <form method="post" action="/admin/graduate/predefense/add" class="flex items-center gap-2">
+          <input type="text" name="student_id" required placeholder="例如 108324010"
+                 class="border rounded-md p-1.5 text-sm flex-1" />
+          <button type="submit" class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
+            + 新增
+          </button>
+        </form>
+      </div>
+      <div class="border border-gray-200 rounded-md p-4">
+        <p class="text-xs font-medium text-gray-500 mb-2">CSV／Excel 匯入（整份覆蓋）</p>
+        <form method="post" action="/admin/graduate/predefense/import" enctype="multipart/form-data"
+              class="flex flex-col items-start gap-2"
+              onsubmit="return confirm('匯入會整份覆蓋掉目前的預口試已通過名單，確定要匯入嗎？')">
+          <input type="file" name="file" accept=".csv,.xlsx,.xlsm" required
+                 class="text-sm w-full text-gray-500 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 file:text-sm file:cursor-pointer hover:file:bg-gray-200" />
+          <button type="submit" class="bg-white border border-blue-600 text-blue-600 text-sm px-3 py-1.5 rounded-md hover:bg-blue-50 whitespace-nowrap">
+            匯入
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-sm font-medium text-gray-700">目前名單</p>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-gray-400">共 {{ predefense_ids | length }} 筆</span>
+        {% if predefense_ids %}
+        <form method="post" action="/admin/graduate/predefense/clear"
+              onsubmit="return confirm('清空整份預口試已通過名單（共 {{ predefense_ids | length }} 筆）？無法復原。')">
+          <button type="submit" class="text-xs text-red-600 hover:underline">清空全部</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% if predefense_ids %}
+    <div class="border border-gray-200 rounded-md max-h-96 overflow-y-auto">
+      <ul class="divide-y divide-gray-100">
+        {% for sid in predefense_ids %}
+        <li class="flex items-center justify-between px-3 py-1.5 text-sm">
+          <span class="text-gray-700 font-mono">{{ sid }}</span>
+          <form method="post" action="/admin/graduate/predefense/delete"
+                onsubmit="return confirm('刪除學號「{{ sid }}」？')">
+            <input type="hidden" name="student_id" value="{{ sid }}" />
+            <button type="submit" class="text-xs text-red-600 hover:underline">刪除</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400">目前還沒有任何學號，上面新增一筆或匯入 CSV 吧。</p>
+    {% endif %}
+  </div>
+</body>
+</html>

@@ -21,9 +21,7 @@
 
     {% if not years and admin_section == 'minor_double' %}
     <p class="text-gray-500 text-sm mb-4">
-      輔系、雙主修的規則都掛在學年度底下，請先到
-      <a href="/admin" class="text-blue-600 hover:underline">大學部應修科目表</a>
-      建立至少一個學年度，才能開始設定。
+      輔系、雙主修的規則都掛在學年度底下，下面「新增學年度」先建立至少一個學年度，才能開始設定。
     </p>
     {% endif %}
 
@@ -58,6 +56,20 @@
             {% endfor %}
           </select>
         </span>
+      </form>
+      <form method="post" action="/admin/year/add" data-year-group="minor_double"
+            class="flex items-center gap-1.5 bg-gray-50 border rounded-md px-2 py-1 flex-wrap"
+            {% if active_tab not in ('minor', 'double_major') %}hidden{% endif %}>
+        <input type="hidden" name="redirect_tab" value="{{ active_tab }}" />
+        <span class="text-xs text-gray-500 whitespace-nowrap">新增學年度</span>
+        <input type="text" name="year" required placeholder="例如 116" class="border rounded-md p-1 text-xs w-16" />
+        <select name="copy_from" class="border rounded-md p-1 text-xs">
+          <option value="">（空白開始）</option>
+          {% for y in years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>複製自 {{ y }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="text-xs text-blue-600 hover:underline whitespace-nowrap">建立</button>
       </form>
     </div>
 
@@ -187,7 +199,7 @@
 
       <div class="mb-8">
         <p class="text-xs font-medium text-gray-500 mb-2">
-          分組——設定「這幾科要選滿幾門才算過」（例如三選一）。同一組的每一科「分組」欄位要填完全一樣的名稱。
+          分組——設定「這幾科要選滿幾門才算過」（例如三選一）。
         </p>
         {% if minor_group_requirements %}
         <div class="flex flex-wrap gap-3 mb-2">
@@ -248,15 +260,8 @@
             <input type="hidden" name="year" value="{{ year }}" />
             <input type="hidden" name="index" value="{{ r.index }}" />
             <input type="hidden" name="target" value="minor" />
+            <input type="hidden" name="kind" value="credit_condition" />
             <div class="flex items-end gap-2 flex-wrap">
-              <div>
-                <label class="block text-xs text-gray-500">類型</label>
-                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                  {% for k, label in note_rule_kinds.items() %}
-                  <option value="{{ k }}" {% if k == r.kind %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
               <div>
                 <label class="block text-xs text-gray-500">類別（選填）</label>
                 <input type="text" name="category" value="{{ r.category }}"
@@ -267,7 +272,7 @@
                 <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
               </div>
             </div>
-            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+            <div class="flex items-end gap-2 flex-wrap">
               <div>
                 <label class="block text-xs text-gray-500">範圍</label>
                 <select name="scope" class="border rounded-md p-1 text-sm">
@@ -339,15 +344,8 @@
           <form method="post" action="/admin/note_rule/add" class="space-y-2 p-3 bg-white border-t rounded-b-md note-rule-form">
             <input type="hidden" name="year" value="{{ year }}" />
             <input type="hidden" name="target" value="minor" />
+            <input type="hidden" name="kind" value="credit_condition" />
             <div class="flex items-end gap-2 flex-wrap">
-              <div>
-                <label class="block text-xs text-gray-500">類型</label>
-                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                  {% for k, label in note_rule_kinds.items() %}
-                  <option value="{{ k }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
               <div>
                 <label class="block text-xs text-gray-500">類別（選填）</label>
                 <input type="text" name="category" class="border rounded-md p-1 text-sm w-48" />
@@ -357,7 +355,7 @@
                 <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
               </div>
             </div>
-            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+            <div class="flex items-end gap-2 flex-wrap">
               <div>
                 <label class="block text-xs text-gray-500">範圍</label>
                 <select name="scope" class="border rounded-md p-1 text-sm">
@@ -521,7 +519,7 @@
 
       <div class="mb-8">
         <p class="text-xs font-medium text-gray-500 mb-2">
-          分組——設定「這幾科要選滿幾門才算過」（例如三選一）。同一組的每一科「分組」欄位要填完全一樣的名稱。
+          分組——設定「這幾科要選滿幾門才算過」（例如三選一）。
         </p>
         {% if double_major_group_requirements %}
         <div class="flex flex-wrap gap-3 mb-2">
@@ -582,15 +580,8 @@
             <input type="hidden" name="year" value="{{ year }}" />
             <input type="hidden" name="index" value="{{ r.index }}" />
             <input type="hidden" name="target" value="double_major" />
+            <input type="hidden" name="kind" value="credit_condition" />
             <div class="flex items-end gap-2 flex-wrap">
-              <div>
-                <label class="block text-xs text-gray-500">類型</label>
-                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                  {% for k, label in note_rule_kinds.items() %}
-                  <option value="{{ k }}" {% if k == r.kind %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
               <div>
                 <label class="block text-xs text-gray-500">類別（選填）</label>
                 <input type="text" name="category" value="{{ r.category }}"
@@ -601,7 +592,7 @@
                 <input type="text" name="text" value="{{ r.text }}" required class="border rounded-md p-1 text-sm w-full" />
               </div>
             </div>
-            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+            <div class="flex items-end gap-2 flex-wrap">
               <div>
                 <label class="block text-xs text-gray-500">範圍</label>
                 <select name="scope" class="border rounded-md p-1 text-sm">
@@ -673,15 +664,8 @@
           <form method="post" action="/admin/note_rule/add" class="space-y-2 p-3 bg-white border-t rounded-b-md note-rule-form">
             <input type="hidden" name="year" value="{{ year }}" />
             <input type="hidden" name="target" value="double_major" />
+            <input type="hidden" name="kind" value="credit_condition" />
             <div class="flex items-end gap-2 flex-wrap">
-              <div>
-                <label class="block text-xs text-gray-500">類型</label>
-                <select name="kind" class="border rounded-md p-1 text-sm" onchange="updateNoteRuleFields(this)">
-                  {% for k, label in note_rule_kinds.items() %}
-                  <option value="{{ k }}">{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </div>
               <div>
                 <label class="block text-xs text-gray-500">類別（選填）</label>
                 <input type="text" name="category" class="border rounded-md p-1 text-sm w-48" />
@@ -691,7 +675,7 @@
                 <input type="text" name="text" required class="border rounded-md p-1 text-sm w-full" />
               </div>
             </div>
-            <div class="flex items-end gap-2 flex-wrap" data-kind-fields="credit_condition">
+            <div class="flex items-end gap-2 flex-wrap">
               <div>
                 <label class="block text-xs text-gray-500">範圍</label>
                 <select name="scope" class="border rounded-md p-1 text-sm">
