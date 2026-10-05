@@ -895,11 +895,14 @@
         // 必修科目未通過：大學部/輔系雙主修都有（missing_required），碩博沒有；教務處未完成
         // 項目：只有大學部主系才有（unmet_categories），輔系雙主修/碩博都永遠空白；英文成績/
         // 預口試英文能力確認狀態：只有碩博才有——欄位依整批的身份（kind）決定要不要出現，
-        // 不要硬塞一個永遠空白的欄位進總表。資格考第二階段口試日期是博士班才有的細節欄位，
-        // 總表不需要（有需要再點開那個人自己的工作表看），所以總表沒有這欄，只有每人工作表有。
+        // 不要硬塞一個永遠空白的欄位進總表。資格考第二階段口試日期只有博士班/工學博士班才有
+        // 這項manual_review_items，碩士班沒有，所以額外再判斷這批有沒有人真的有這項。
         const includeMissingRequiredCol = kind !== 'graduate';
         const includeUnmetCategoriesCol = kind === 'main';
         const includeEnglishExamCols = kind === 'graduate';
+        const includeExamDateCol = resultList.some(
+          (r) => r.graduate && r.graduate.manual_review_items.some((item) => item.startsWith('資格考第二階段')),
+        );
         summarySheet.columns = [
           { header: '#', key: 'idx', width: 5 },
           { header: resultList.some((r) => r.student_id) ? '學號' : '檔案名稱', key: 'filename', width: 34 },
@@ -917,6 +920,7 @@
             { header: '預口試', key: 'predefense', width: 10 },
             { header: '英文能力', key: 'english', width: 10 },
           ] : []),
+          ...(includeExamDateCol ? [{ header: '資格考第二階段口試日期', key: 'examDate', width: 20 }] : []),
         ];
         summarySheet.getRow(1).eachCell((cell) => {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -947,6 +951,7 @@
               manualReviewStatus(r, '預口試'), manualReviewStatus(r, '英文能力'),
             );
           }
+          if (includeExamDateCol) rowValues.push((r.graduate && r.graduate.secondStageExamDate) || '');
           const row = summarySheet.addRow(rowValues);
           const style = STATUS_STYLES[status];
           if (style) {
