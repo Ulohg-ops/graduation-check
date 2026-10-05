@@ -107,7 +107,7 @@
           <thead class="sticky top-0 bg-white">
             <tr class="border-b text-left text-gray-500">
               <th class="py-1 px-2 w-10">#</th>
-              <th class="py-1 px-2">{{ '學號' if program == 'graduate' else '檔案名稱' }}</th>
+              <th class="py-1 px-2">{{ '學號' if results|selectattr('student_id')|list else '檔案名稱' }}</th>
               <th class="py-1 px-2 w-24">狀態</th>
               <th class="py-1 px-2 w-20">總學分</th>
             </tr>
@@ -117,7 +117,7 @@
             <tr class="summary-row border-b cursor-pointer hover:bg-gray-50" data-index="{{ loop.index0 }}">
               <td class="py-1 px-2 text-gray-400">{{ loop.index }}</td>
               <td class="py-1 px-2 break-all" title="{{ r.filename }}">
-                {{ (r.graduate.student_id if r.graduate else None) or r.filename }}
+                {{ r.student_id or r.filename }}
               </td>
               <td class="py-1 px-2 whitespace-nowrap">
                 {% if r.error %}<span class="text-gray-500">⚠️ 無法解析</span>
@@ -502,20 +502,6 @@
             {% endfor %}
           </ul>
           {% endif %}
-          <div class="manual-verdict-box p-3 border-t border-gray-100 bg-gray-50" data-manual-box data-index="{{ r_index }}">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">最終結果（手動）</label>
-            <div class="flex items-center gap-5">
-              <label class="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" class="manual-verdict-checkbox w-4 h-4" data-index="{{ r_index }}" data-value="pass" />
-                通過
-              </label>
-              <label class="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" class="manual-verdict-checkbox w-4 h-4" data-index="{{ r_index }}" data-value="fail" />
-                不通過
-              </label>
-            </div>
-            <p class="text-xs text-gray-400 mt-1.5">預設都不勾＝尚未確認，會一併帶入匯出的 Excel／PDF。</p>
-          </div>
         </div>
       </details>
 
@@ -667,20 +653,21 @@
       return rows;
     }
 
-    // 碩博班g.passed只代表「系統能自動檢查的部分」（學分/課程池/領域/學期數）全部達標，不是
-    // 真的符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，真正的
-    // 最終結果要等人工在畫面上選過「通過/不通過」才算數（g.manualVerdict）。這個函式統一把
-    // 「人工已選 > 尚未選」的優先順序套到Excel的每個地方，不要兩套邏輯各自判斷一次。
+    // 碩博班的最終結果不再是人工勾選決定，改成純粹看「上面列的項目」有沒有全部滿足：系統能
+    // 自動檢查的部分（學分/課程池/領域/學期數，g.passed）要達標，而且手動確認項目（資格考、
+    // 論文點數、英文能力等manual_review_items）也要全部勾完，兩者都滿足才算「通過」；只要有
+    // 一項沒滿足就留白（尚未確認），不會自動判定成「不通過」——畢竟自動判定沒過的部分也可能
+    // 只是還沒補交資料，不該直接蓋成確定的負面結果。
     function graduateFinalStatus(g) {
-      if (g.manualVerdict === 'pass') return '通過';
-      if (g.manualVerdict === 'fail') return '未通過';
-      return '尚未確認';
+      const reviewOk = !g.manual_review_items.length || (g.manualReviewChecked || []).every(Boolean);
+      return (g.passed && reviewOk) ? '通過' : '尚未確認';
     }
 
-    // 碩博有抓到學號的話，Excel裡能看到這個檔案是誰的地方都優先顯示學號、不顯示檔案名稱
-    // （抓不到學號才退回顯示檔案名稱），跟畫面上「學生總覽」那張表的邏輯一致。
+    // 有抓到學號的話（大學部/輔系/雙主修/碩博都共用同一種「畢業審核紀錄表」報表格式），
+    // Excel裡能看到這個檔案是誰的地方都優先顯示學號、不顯示檔案名稱（抓不到學號才退回顯示
+    // 檔案名稱），跟畫面上「學生總覽」那張表的邏輯一致。
     function displayLabel(r) {
-      return (r.graduate && r.graduate.student_id) || r.filename;
+      return r.student_id || r.filename;
     }
 
     // 每份工作表最上面那條合併儲存格的標題列，取代原本CSV裡「檔案名稱/學年度」欄位重複出現。
@@ -802,7 +789,7 @@
         });
         summarySheet.columns = [
           { header: '#', key: 'idx', width: 5 },
-          { header: resultList.some((r) => r.graduate) ? '學號' : '檔案名稱', key: 'filename', width: 34 },
+          { header: resultList.some((r) => r.student_id) ? '學號' : '檔案名稱', key: 'filename', width: 34 },
           { header: '身份', key: 'identity', width: 20 },
           { header: '狀態', key: 'status', width: 10 },
           { header: '總學分', key: 'credit', width: 10 },
@@ -913,33 +900,6 @@
         const r = results[Number(btn.dataset.index)];
         const safeName = displayLabel(r).replace(/[\\/:*?"<>|]/g, '_');
         downloadWorkbook([r], `畢業學分檢核結果_${safeName}.xlsx`);
-      });
-    });
-
-    // 碩博班的「最終核定結果」是純前端狀態（沒有資料庫可以存，這個系統本來就是上傳PDF即看即
-    // 丟）：勾選框改變時直接寫回results陣列對應那筆的graduate.manualVerdict，Excel匯出
-    // （buildOverallStatus/buildTitle/buildReasonSummary/buildStudentRows，見graduateFinalStatus）
-    // 都是讀同一份results陣列，勾了之後馬上就會反映在匯出的檔案裡，不用另外同步。
-    // 「通過」「不通過」兩個勾選框互斥（勾一個要自動取消另一個），兩個都不勾就是預設的
-    // 「尚未確認」，不用額外畫第三個選項。
-    document.querySelectorAll('.manual-verdict-checkbox').forEach((cb) => {
-      cb.addEventListener('change', () => {
-        const index = cb.dataset.index;
-        const group = document.querySelectorAll(`.manual-verdict-checkbox[data-index="${index}"]`);
-        const box = cb.closest('[data-manual-box]');
-        let value = null;
-        if (cb.checked) {
-          group.forEach((other) => { if (other !== cb) other.checked = false; });
-          value = cb.dataset.value;
-        }
-        const r = results[Number(index)];
-        if (r && r.graduate) r.graduate.manualVerdict = value;
-        if (box) {
-          box.classList.remove('border-gray-200', 'bg-gray-50', 'border-green-200', 'bg-green-50', 'border-red-200', 'bg-red-50');
-          if (value === 'pass') box.classList.add('border-green-200', 'bg-green-50');
-          else if (value === 'fail') box.classList.add('border-red-200', 'bg-red-50');
-          else box.classList.add('border-gray-200', 'bg-gray-50');
-        }
       });
     });
 

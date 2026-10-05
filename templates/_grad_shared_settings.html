@@ -1,12 +1,11 @@
-{# 碩士班/博士班/工學博士班/逕博四個分頁籤共用這塊：學年度管理、及格分數（成績單解析用，四個學制
-   共用，但跟輔系/雙主修一樣依入學學年度分開設定）。手動確認項目（結果頁逐項勾選框，見result.html
-   的☑️手動確認區塊）則是各學制獨立一份——碩士班沒有資格考、SCI論文點數、英文能力這些博士班才有的
-   畢業條件，工學博士班的口試委員產業專家規定也不適用其他學制。用current_track_key記得存檔後要
-   跳轉回目前這個分頁籤，grad_year記得存檔後要留在目前這個學年度，不會因為存檔就跳去別的學制分頁
-   或別的學年度。 #}
+{# 碩士班/博士班/工學博士班三個分頁籤共用這塊：學年度管理（跟輔系/雙主修一樣依入學學年度分開
+   設定）。手動確認項目（結果頁逐項勾選框，見result.html的☑️手動確認區塊）則是各學制獨立一份——
+   碩士班沒有資格考、SCI論文點數、英文能力這些博士班才有的畢業條件，工學博士班的口試委員產業
+   專家規定也不適用其他學制。用current_track_key記得存檔後要跳轉回目前這個分頁籤，grad_year
+   記得存檔後要留在目前這個學年度，不會因為存檔就跳去別的學制分頁或別的學年度。 #}
 <div class="mb-6 p-4 bg-gray-50 rounded-md border border-gray-200">
   <div class="mb-4">
-    <p class="text-xs font-medium text-gray-500 mb-2">學年度（碩士班／博士班／工學博士班／逕博共用同一份學年度清單）</p>
+    <p class="text-xs font-medium text-gray-500 mb-2">學年度（碩士班／博士班／工學博士班共用同一份學年度清單）</p>
     <div class="flex flex-wrap gap-3">
       <form method="post" action="/admin/graduate/year/rename" class="flex items-center gap-1.5 bg-white border rounded-md px-2 py-1">
         <input type="hidden" name="old_year" value="{{ grad_year }}" />

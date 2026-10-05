@@ -261,6 +261,9 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         # 用來分辨「掃描版、根本沒有文字」跟「有文字但抓不到課程表格」這兩種不同的失敗原因，
         # 結果頁可以給更精確的提示，不要籠統地都說「可能是掃描版」
         has_text = any((page.extract_text() or "").strip() for page in pdf.pages)
+        # 大學部/輔系/雙主修跟碩博共用同一種「畢業審核紀錄表」報表格式，第一頁一樣有「學號：...」
+        # 這一行，見_extract_student_id的說明——抓不到時回傳None，不影響後面的學分/科目判定。
+        student_id = _extract_student_id(pdf)
 
     # 同一課號重補修會出現多筆（例如二一二不及格、二二二補修通過），
     # 只要有一次通過就算一次學分，避免加總時重複計入。
@@ -287,6 +290,7 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         "passed_courses": passed_courses,
         "substitutions": substitutions,
         "has_text": has_text,
+        "student_id": student_id,
     }
 
 
@@ -522,7 +526,7 @@ def _extract_grad_rows_from_audit_record(pdf: pdfplumber.PDF) -> list:
     return rows
 
 
-_AUDIT_STUDENT_ID_RE = re.compile(r"學號[：:]\s*(\d+)")
+_AUDIT_STUDENT_ID_RE = re.compile(r"學號\s*[：:]\s*(\d+)")
 
 
 def _extract_student_id(pdf: pdfplumber.PDF) -> Optional[str]:
@@ -716,6 +720,7 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
     return {
         "filename": filename,
         "error": None,
+        "student_id": student_id,
         "total_credit": check["total_credit"],
         "credit_ok": True,
         "required_credits": 0,
@@ -1151,7 +1156,7 @@ async def minor_index(request: Request):
 async def graduate_index(request: Request, year: Optional[str] = None):
     """碩士班／博士班資格檢核的上傳頁。碩博的規則存在獨立的graduate_rules.yaml，跟主系／輔系／
     雙主修用的rules.yaml是兩份不相干的檔案，所以用專屬的graduate.html樣板，但一樣依入學學年度
-    分規則、也一樣要選學制（碩士班/博士班/工學博士班/逕博）。
+    分規則、也一樣要選學制（碩士班/博士班/工學博士班）。
     """
     grad_rules = load_graduate_rules()
     years, selected_year, year_data = _resolve_year(grad_rules, year)
@@ -1259,6 +1264,7 @@ def _build_result_entry(
     return {
         "filename": filename,
         "error": None,
+        "student_id": result.get("student_id"),
         "total_credit": result["total_credit"],
         "credit_ok": credit_ok,
         "required_credits": required_credits,
@@ -1304,6 +1310,7 @@ def _build_error_entry(filename: str, error: str) -> dict:
     return {
         "filename": filename,
         "error": error,
+        "student_id": None,
         "total_credit": 0,
         "credit_ok": False,
         "required_credits": 0,
@@ -1337,6 +1344,7 @@ def _build_minor_only_entry(filename: str, result: dict, minor_data: dict, fallb
     return {
         "filename": filename,
         "error": None,
+        "student_id": result.get("student_id"),
         "total_credit": result["total_credit"],
         "credit_ok": True,
         "required_credits": 0,
@@ -1786,7 +1794,7 @@ def _graduate_admin_context(
     edit_grad_track: Optional[str] = None,
     edit_grad_course: Optional[int] = None,
 ) -> dict:
-    """/admin/programs 底下「碩士班／博士班／工學博士班／逕博」分頁籤要用的資料——碩博規則
+    """/admin/programs 底下「碩士班／博士班／工學博士班」分頁籤要用的資料——碩博規則
     存在獨立的graduate_rules.yaml，頂層一樣是入學學年度（見load_graduate_rules的說明），跟
     大學部/輔系/雙主修用的rules.yaml是兩份不相干的檔案、兩份不相干的學年度清單，所以獨立一個
     函式算，不跟著_admin_context其餘部分共用同一個year/rules。
@@ -2210,7 +2218,7 @@ async def admin_programs(
     edit_grad_course: Optional[int] = None,
     grad_year: Optional[str] = None,
 ):
-    """輔系／雙主修／碩士班／博士班／工學博士班／逕博的後台管理頁，跟/admin（大學部）分開
+    """輔系／雙主修／碩士班／博士班／工學博士班的後台管理頁，跟/admin（大學部）分開
     頁面——這幾個身份各自的表單/資料形狀跟大學部不一樣，擠在同一個頁面分頁籤太多，拆開後
     兩邊分頁籤數量都比較好抓。碩博的規則存在獨立的graduate_rules.yaml，學年度跟輔系/雙主修
     （存在rules.yaml）是兩份不相干的清單，所以grad_year跟year是分開的查詢參數。
