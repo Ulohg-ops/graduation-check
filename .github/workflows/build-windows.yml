@@ -49,7 +49,7 @@ jobs:
         # 換來「不要跟一整個資料夾放在一起」——rules.yaml/graduate_rules.yaml這些會被修改、
         # 需要跨次執行持續存在的資料，main.py裡已經改成存在%APPDATA%，不受這裡影響。
         run: >
-          pyinstaller --noconsole --onefile --name GraduationCheck
+          pyinstaller --noconsole --onefile --name 畢業學分檢核系統
           --icon static/icon.ico
           --add-data "templates;templates"
           --add-data "static;static"
@@ -68,10 +68,10 @@ jobs:
           body: |
             自動打包的 Windows 執行檔，每次程式更新後會自動重新產生、覆蓋這個連結。
 
-            下載 `GraduationCheck.exe`，雙擊即可使用，不需要另外安裝 Python、也不需要解壓縮。
+            下載 `畢業學分檢核系統.exe`，雙擊即可使用，不需要另外安裝 Python、也不需要解壓縮。
             第一次啟動會比之後幾次稍慢一點（要先解壓縮內建的程式內容到暫存資料夾），是正常現象。
 
             應修科目表規則存在使用者電腦的 `%APPDATA%\GraduationCheck\` 資料夾裡，不會因為
             重新下載新版 .exe 就被覆蓋掉。
-          files: dist/GraduationCheck.exe
+          files: dist/畢業學分檢核系統.exe
           make_latest: true
