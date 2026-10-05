@@ -653,14 +653,13 @@
       return rows;
     }
 
-    // 碩博班的最終結果不再是人工勾選決定，改成純粹看「上面列的項目」有沒有全部滿足：系統能
-    // 自動檢查的部分（學分/課程池/領域/學期數，g.passed）要達標，而且手動確認項目（資格考、
-    // 論文點數、英文能力等manual_review_items）也要全部勾完，兩者都滿足才算「通過」；只要有
-    // 一項沒滿足就留白（尚未確認），不會自動判定成「不通過」——畢竟自動判定沒過的部分也可能
-    // 只是還沒補交資料，不該直接蓋成確定的負面結果。
+    // 碩博班的最終結果不再是人工勾選決定，改成純粹看系統能自動檢查的部分（學分/課程池/領域/
+    // 學期數，g.passed）有沒有達標；資格考、論文點數、英文能力這些manual_review_items是
+    // 另外單獨的提醒（見buildReasonParts），不會卡住這裡的「通過」判定——那些本來就是系統
+    // 自動判斷不了的項目，不該因為辦公人員還沒勾完畫面上的確認框，就讓一個學分/課程都已經
+    // 達標的人在總表上顯示空白。沒達標就留白（尚未確認），不會自動判定成「不通過」。
     function graduateFinalStatus(g) {
-      const reviewOk = !g.manual_review_items.length || (g.manualReviewChecked || []).every(Boolean);
-      return (g.passed && reviewOk) ? '通過' : '尚未確認';
+      return g.passed ? '通過' : '尚未確認';
     }
 
     // 有抓到學號的話（大學部/輔系/雙主修/碩博都共用同一種「畢業審核紀錄表」報表格式），
@@ -737,39 +736,56 @@
       return r.passed ? '通過' : '未通過';
     }
 
-    function buildReasonSummary(r) {
-      if (r.error) return r.error;
+    // 總表原本把所有原因擠進同一格「備註」文字，科目一多就變成一坨看不出分段的長文字。
+    // 改成拆成三個獨立欄位（見buildWorkbook()的summarySheet.columns）：flags是學分門檻這類
+    // 單純的達標旗標，missingRequired/unmetCategories各自對應單一份工作表「仍有必修科目
+    // 未通過」「教務處未完成項目」兩個區塊，分欄後每一欄只放同一種性質的內容，掃過去比較
+    // 看得出哪個人缺哪一類東西；非主系（輔系/雙主修/碩博）身份沒有對應概念的欄位就留空
+    // 字串，不是漏資料。必修科目名稱後面常帶著「（4選1，需擇一修習且及格）」這種分組說明
+    // 文字，這裡只是要讓人一眼掃過科目名稱，細節已經在那個人自己的工作表/畫面上看得到，
+    // 去掉以免每一科都拖一長串括號。
+    function buildReasonParts(r) {
+      if (r.error) return { flags: r.error, missingRequired: '', unmetCategories: '' };
       if (r.graduate) {
         const g = r.graduate;
-        const status = graduateFinalStatus(g);
-        if (status === '通過') return '';
-        const reasons = [];
-        if (!g.credit_ok) reasons.push('總學分不足');
-        if (!g.pool_ok) reasons.push('課程池未達標');
-        if (g.require_domain_each && !g.domain_ok) reasons.push('化工／材料領域未達標');
-        if (!g.seminar_ok) reasons.push('書報討論學期數不足');
-        if (!g.topics_ok) reasons.push('專題研究學期數不足');
-        if (g.industry_topics_min_semesters && !g.industry_topics_ok) reasons.push('產業專題研究學期數不足');
-        if (status === '尚未確認') reasons.push('資格考／論文點數／英文能力等項目尚待手動確認');
-        return reasons.join('、');
+        const flags = [];
+        if (!g.passed) {
+          if (!g.credit_ok) flags.push('總學分不足');
+          if (!g.pool_ok) flags.push('課程池未達標');
+          if (g.require_domain_each && !g.domain_ok) flags.push('化工／材料領域未達標');
+          if (!g.seminar_ok) flags.push('書報討論學期數不足');
+          if (!g.topics_ok) flags.push('專題研究學期數不足');
+          if (g.industry_topics_min_semesters && !g.industry_topics_ok) flags.push('產業專題研究學期數不足');
+        }
+        // 資格考／論文點數／英文能力這些manual_review_items跟上面的g.passed（通過與否）
+        // 是兩件獨立的事──這裡只是單純提醒「這幾項還沒勾完」，不會因為上面已經顯示「通過」
+        // 就不提醒，兩者互不影響。
+        const reviewPending = g.manual_review_items.length && !(g.manualReviewChecked || []).every(Boolean);
+        if (reviewPending) flags.push('資格考／論文點數／英文能力等項目尚待手動確認');
+        return { flags: flags.join('、'), missingRequired: '', unmetCategories: '' };
       }
       if (r.minor) {
         const m = r.minor;
-        if (m.passed) return '';
-        const reasons = [];
-        if (m.missing_required.length) reasons.push(`還沒通過：${m.missing_required.map((x) => x.name).join('、')}`);
-        if (m.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
-        return reasons.join('；');
+        const flags = m.note_results.some((n) => n.status === 'fail') ? '備註規則未符合' : '';
+        const missingRequired = m.missing_required
+          .map((x) => x.name.replace(/（[^）]*）/g, '').trim())
+          .join('、');
+        return { flags, missingRequired, unmetCategories: '' };
       }
-      if (r.passed) return '';
-      const reasons = [];
-      if (!r.credit_ok) reasons.push('學分不足');
-      if (r.required_credits && !r.required_credit_ok) reasons.push('必修學分不足');
-      if (r.elective_credits && !r.elective_credit_ok) reasons.push('選修學分不足');
-      if (r.missing_required.length) reasons.push('仍有必修科目未通過');
-      if (r.note_results.some((n) => n.status === 'fail')) reasons.push('備註規則未符合');
-      if (r.unmet_categories.length) reasons.push('教務處另有未完成項目');
-      return reasons.join('、');
+      if (r.passed) return { flags: '', missingRequired: '', unmetCategories: '' };
+
+      const flags = [];
+      if (!r.credit_ok) flags.push('學分不足');
+      if (r.required_credits && !r.required_credit_ok) flags.push('必修學分不足');
+      if (r.elective_credits && !r.elective_credit_ok) flags.push('選修學分不足');
+      if (r.note_results.some((n) => n.status === 'fail')) flags.push('備註規則未符合');
+
+      const missingRequired = r.missing_required
+        .map((m) => m.name.replace(/（[^）]*）/g, '').trim())
+        .join('、');
+      const unmetCategories = r.unmet_categories.map((u) => u.name).join('、');
+
+      return { flags: flags.join('、'), missingRequired, unmetCategories };
     }
 
     // 每個學生一張獨立的工作表——這樣不管是要看單一個人、還是一次列印多位，Excel原生的
@@ -793,7 +809,9 @@
           { header: '身份', key: 'identity', width: 20 },
           { header: '狀態', key: 'status', width: 10 },
           { header: '總學分', key: 'credit', width: 10 },
-          { header: '備註', key: 'note', width: 60 },
+          { header: '備註', key: 'flags', width: 22 },
+          { header: '必修科目未通過', key: 'missingRequired', width: 36 },
+          { header: '教務處未完成項目', key: 'unmetCategories', width: 30 },
         ];
         summarySheet.getRow(1).eachCell((cell) => {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -802,8 +820,10 @@
         });
         resultList.forEach((r, i) => {
           const status = buildOverallStatus(r);
+          const parts = buildReasonParts(r);
           const row = summarySheet.addRow([
-            i + 1, displayLabel(r), buildIdentityLabel(r), status, r.error ? '' : r.total_credit, buildReasonSummary(r),
+            i + 1, displayLabel(r), buildIdentityLabel(r), status, r.error ? '' : r.total_credit,
+            parts.flags, parts.missingRequired, parts.unmetCategories,
           ]);
           const style = STATUS_STYLES[status];
           if (style) {
@@ -811,6 +831,15 @@
             statusCell.font = { bold: true, color: { argb: style.font } };
             statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
           }
+          // 必修科目未通過／教務處未完成項目這兩欄只要有內容，淡黃底讓人掃過總表就能看出誰
+          // 這項有問題，不用逐格讀文字才知道是不是空的──跟「尚未確認」共用同一種提醒色
+          // （見STATUS_STYLES），空字串（沒問題）維持白底不上色。
+          [7, 8].forEach((col) => {
+            const cell = row.getCell(col);
+            if (cell.value) {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+            }
+          });
           row.eachCell((cell) => {
             cell.border = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
             cell.alignment = { vertical: 'top', wrapText: true };

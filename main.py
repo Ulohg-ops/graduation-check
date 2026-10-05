@@ -72,7 +72,7 @@ for _seed_name in ("rules.yaml", "graduate_rules.yaml"):
         shutil.copy(_src, _dest)
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB，一般文字型成績單PDF遠小於這個數字，超過大概是傳錯檔案
-MAX_FILES = 30  # 一次最多同時處理幾份，避免有人整個資料夾誤傳上來拖垮伺服器
+MAX_FILES = 100  # 一次最多同時處理幾份，避免有人整個資料夾誤傳上來拖垮伺服器
 
 app = FastAPI(title="化材系畢業學分檢核系統")
 templates = Jinja2Templates(directory=str(RESOURCE_DIR / "templates"))
@@ -689,6 +689,18 @@ def _build_graduate_check(rows: list, track: dict) -> dict:
     }
 
 
+def _mark_counts_as_fail(courses: list) -> list:
+    """幫courses清單裡每筆課程就地加上counts_as_fail欄位，標出結果頁「未通過課程」要顯示哪幾筆：
+    同一課號重複修習會出現多筆記錄（例如先不通過、後來重補修通過），只要其中一次真的通過，
+    這門課對學生來說就不是「還沒通過」，不該出現在「未通過課程」清單裡誤導使用者——但課程
+    明細（courses本身）仍然照實列出每一筆，不隱藏教務處原始紀錄，只是多一個欄位註記。
+    """
+    passed_once_codes = {c["code"] for c in courses if c["passed"]}
+    for c in courses:
+        c["counts_as_fail"] = not c["passed"] and c["code"] not in passed_once_codes
+    return courses
+
+
 def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data: dict) -> dict:
     """/graduate 上傳頁的結果項，沿用跟_build_result_entry一樣的欄位骨架（見_build_minor_only_entry
     的說明），主系相關欄位全部給「不檢查」的中性值，只有graduate欄位是真的算出來的判定結果。
@@ -718,13 +730,7 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
         ),
         key=lambda c: (c["year"] or 0, c["term"] or 0, c["code"]),
     )
-    # 同一課號重複修習會出現多筆記錄（例如先通過、後來又選到同一科，教務處備註「重複修習,
-    # 不予採計」判不通過）：只要其中一次真的通過，這門課對學生來說就不是「還沒通過」，不該
-    # 跟著出現在「未通過課程」清單裡誤導使用者以為還欠這一科——但課程明細仍然照實列出每一筆，
-    # 不隱藏教務處原始紀錄。
-    passed_once_codes = {c["code"] for c in courses_display if c["passed"]}
-    for c in courses_display:
-        c["counts_as_fail"] = not c["passed"] and c["code"] not in passed_once_codes
+    courses_display = _mark_counts_as_fail(courses_display)
 
     manual_review_items = track.get("manual_review_items", [])
     # 學號有在預口試已通過名單裡的話，「預口試通過」那一項手動確認勾選框自動幫忙打勾，省得
@@ -886,10 +892,15 @@ def _consumed_required_codes(
     M選N分組不一樣的是，這種超修原則上「不能」流向選修學分——選修學分只能是本系專業課程或應修
     科目表列出的必修/必選修課程超修的部分，國文/外文這種共同必修categories多修的課不算數（既不是
     必修、也不是選修，單純不列入這兩個子門檻，但還是算在總學分裡），超過門檻的部分從consumed
-    排除、另外歸進 excluded 集合，_credit_breakdown 要把這個集合也從選修學分池扣掉。**通識課程是
-    例外**：教務處確認通識多修的部分可以計入選修學分（跟M選N分組超修一樣），所以通識超修的課
-    不進excluded，直接留給_credit_breakdown當選修學分計算。門檻是0（例如體育、服務學習課程本身
-    沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有「多少算超修」的基準可以拿來切。
+    排除、另外歸進 excluded 集合，_credit_breakdown 要把這個集合也從選修學分池扣掉。**通識課程、
+    語言中心開設的第二外語課程是例外**：教務處確認通識多修的部分可以計入選修學分（跟M選N分組
+    超修一樣）；外文應修科目表的備註本來就寫明「大一英文／英文系課程／語言中心第二外語課程
+    擇一修讀」，三選一已經滿足門檻後，學生額外修的語言中心第二外語課（課號是LN00開頭，例如
+    LN0025日文、LN0043德文，跟大一英文/英文系課程的LN1開頭不同範圍）不該被當成「選了另一個
+    選項的超修」排除掉，應該跟通識超修一樣流向選修學分。這兩種超修都不進consumed（不算必修）
+    也不進excluded（不會被排除在選修外），直接留給_credit_breakdown的elective_courses算選修。
+    門檻是0（例如體育、服務學習課程本身沒有學分門檻）的項目維持全部算必修消耗掉，因為沒有
+    「多少算超修」的基準可以拿來切。
 
     substitutions（轉系生抵修/抵免，見_parse_substitutions）：原課號對應的目標課號，視同目標
     課號也已經通過——這裡額外把「目標課號有被consumed」的原課號也併入consumed，不然passed_
@@ -944,15 +955,19 @@ def _consumed_required_codes(
                 continue
             accumulated = 0.0
             for c in matched:
+                # 語言中心第二外語課程課號固定是LN00開頭（例如LN0025日文、LN0043德文），跟
+                # 大一英文/英文系課程的LN1xxx不同範圍——外文超修如果是這個範圍的課，比照通識
+                # 超修放行，見上面docstring的說明。
+                is_language_center_course = c["code"].startswith("LN0")
                 if accumulated < threshold:
                     consumed.add(c["code"])
                     consumed_tier[c["code"]] = course.get("tier") or ""
                     accumulated += c["credit"]
-                elif not is_general_education:
+                elif not is_general_education and not is_language_center_course:
                     excluded.add(c["code"])
-                # 通識超修：不加進consumed（不算必修）也不加進excluded（不會被排除在選修外），
-                # 直接留在consumed/excluded之外，_credit_breakdown的elective_courses自然就會
-                # 把它算進選修學分。
+                # 通識／語言中心第二外語超修：不加進consumed（不算必修）也不加進excluded（不會
+                # 被排除在選修外），直接留在consumed/excluded之外，_credit_breakdown的
+                # elective_courses自然就會把它算進選修學分。
 
     return consumed, excluded, consumed_tier
 
@@ -1255,6 +1270,7 @@ def _build_result_entry(
     選修學分來源限制）也沒有不合格的項目，四個條件都成立才算真的達到畢業資格。
     """
     substitutions = result.get("substitutions") or {}
+    courses_display = _mark_counts_as_fail(result["courses"])
     missing_required = missing_required_courses(
         required_courses, result["passed_codes"], group_requirements, substitutions
     )
@@ -1308,7 +1324,7 @@ def _build_result_entry(
             # 沒過了，不能因為我們自己的學分/科目檢查都過就顯示「已符合畢業資格」蓋過這件事。
             and not unmet_categories
         ),
-        "courses": result["courses"],
+        "courses": courses_display,
         "has_text": result["has_text"],
         "unmet_categories": unmet_categories,
         "missing_required": missing_required,
