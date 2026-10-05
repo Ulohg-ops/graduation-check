@@ -29,6 +29,23 @@ if getattr(sys, "frozen", False):
     RESOURCE_DIR = Path(sys._MEIPASS)
     DATA_DIR = Path(os.environ.get("APPDATA") or Path.home()) / "GraduationCheck"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 換成新打包的.exe（commit hash跟上次記錄的不一樣）時，把DATA_DIR整個清空重置——跟下面
+    # 「只在檔案不存在時才seed」的做法不同，這裡是故意每次換版本都打回bundle內建的原廠規則，
+    # 不保留使用者上一版累積的修改（包含預口試名單）。version.txt是CI打包時寫入的commit
+    # hash＋打包日期（見.github/workflows/build-windows.yml、launcher.py的_read_version），
+    # 拿不到版本字串（例如version.txt沒跟著打包進來）就不清空，避免誤判成「換版本」。
+    _version_file = RESOURCE_DIR / "version.txt"
+    _current_version = _version_file.read_text(encoding="utf-8").strip() if _version_file.exists() else ""
+    _version_marker = DATA_DIR / ".bundled_version"
+    _last_version = _version_marker.read_text(encoding="utf-8").strip() if _version_marker.exists() else None
+    if _current_version and _current_version != _last_version:
+        for _child in DATA_DIR.iterdir():
+            if _child.is_dir():
+                shutil.rmtree(_child, ignore_errors=True)
+            else:
+                _child.unlink(missing_ok=True)
+        _version_marker.write_text(_current_version, encoding="utf-8")
 else:
     RESOURCE_DIR = Path(__file__).resolve().parent
     DATA_DIR = RESOURCE_DIR
@@ -45,9 +62,9 @@ GRADUATE_RULES_BACKUP_FILE = DATA_DIR / "graduate_rules.yaml.bak"
 # 不像rules.yaml需要一份起始規則才能用。
 PREDEFENSE_FILE = DATA_DIR / "predefense_passed.yaml"
 
-# 第一次執行（DATA_DIR裡還沒有這兩個檔案）時，把bundle裡打包的預設版本複製過去當起始資料——
-# 不然使用者第一次雙擊執行檔，/admin會找不到任何規則可以編輯。之後每次啟動DATA_DIR裡已經有
-# 檔案了，不會再被bundle裡的版本覆蓋，使用者辛苦設定的規則不會因為重新打包執行檔就被打回原廠。
+# DATA_DIR裡還沒有這兩個檔案時，把bundle裡打包的預設版本複製過去當起始資料——不然使用者
+# 第一次雙擊執行檔，/admin會找不到任何規則可以編輯。「還沒有檔案」除了真正第一次執行之外，
+# 也包含剛被上面的換版本清空邏輯清掉之後，等於每次換版本都會重新補回bundle內建的原廠規則。
 for _seed_name in ("rules.yaml", "graduate_rules.yaml"):
     _dest = DATA_DIR / _seed_name
     _src = RESOURCE_DIR / _seed_name
