@@ -4,4 +4,3 @@ pdfplumber
 jinja2
 python-multipart
 pyyaml
-openpyxl

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>化材系畢業學分檢核系統 - 還沒通過名單</title>
+  <link rel="stylesheet" href="/static/tailwind.css?v={{ css_version }}" />
+  {% include "_admin_head_style.html" %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+  {% set admin_section = 'grad' %}
+  {% include "_admin_nav.html" %}
+
+  <div class="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-8 my-8">
+    <h1 class="text-xl font-bold mb-1">預口試／英文能力 還沒通過名單</h1>
+    <p class="text-sm text-gray-500 mb-6">
+      碩博成績單上傳時，結果頁「預口試通過」「英文能力」這兩項手動確認勾選框預設都當作已經
+      通過（自動打勾），只有學號出現在下面對應的「還沒通過」名單裡才不會自動勾選（還是可以
+      在結果頁手動調整）。只有「學生個人成績一覽表」格式抓得到學號，畢業審核紀錄表格式沒有
+      這個欄位。這兩份名單都是四個學制、所有學年度共用同一份。
+    </p>
+
+    {% for roster in rosters %}
+    <div class="{% if not loop.last %}mb-8 pb-8 border-b border-gray-100{% endif %}">
+      <h2 class="text-sm font-semibold text-gray-700 mb-3">{{ roster.label }}</h2>
+
+      <div class="border border-gray-200 rounded-md p-4 mb-4 max-w-sm">
+        <p class="text-xs font-medium text-gray-500 mb-2">新增單筆學號</p>
+        <form method="post" action="/admin/graduate/manual_review_exceptions/add" class="flex items-center gap-2">
+          <input type="hidden" name="roster_key" value="{{ roster.key }}" />
+          <input type="text" name="student_id" required placeholder="例如 108324010"
+                 class="border rounded-md p-1.5 text-sm flex-1" />
+          <button type="submit" class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-blue-700 whitespace-nowrap">
+            + 新增
+          </button>
+        </form>
+      </div>
+
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-sm font-medium text-gray-700">目前名單</p>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">共 {{ roster.ids | length }} 筆</span>
+          {% if roster.ids %}
+          <form method="post" action="/admin/graduate/manual_review_exceptions/clear"
+                onsubmit="return confirm('清空整份「{{ roster.label }}」名單（共 {{ roster.ids | length }} 筆）？無法復原。')">
+            <input type="hidden" name="roster_key" value="{{ roster.key }}" />
+            <button type="submit" class="text-xs text-red-600 hover:underline">清空全部</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% if roster.ids %}
+      <div class="border border-gray-200 rounded-md max-h-64 overflow-y-auto">
+        <ul class="divide-y divide-gray-100">
+          {% for sid in roster.ids %}
+          <li class="flex items-center justify-between px-3 py-1.5 text-sm">
+            <span class="text-gray-700 font-mono">{{ sid }}</span>
+            <form method="post" action="/admin/graduate/manual_review_exceptions/delete"
+                  onsubmit="return confirm('刪除學號「{{ sid }}」？')">
+              <input type="hidden" name="roster_key" value="{{ roster.key }}" />
+              <input type="hidden" name="student_id" value="{{ sid }}" />
+              <button type="submit" class="text-xs text-red-600 hover:underline">刪除</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-400">目前沒有任何學號，代表大家這一項都當作已經通過。</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</body>
+</html>

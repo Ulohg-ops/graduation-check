@@ -10,6 +10,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象
@@ -695,6 +696,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象
@@ -1380,6 +1382,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象
@@ -2065,6 +2068,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象
@@ -2750,6 +2754,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象
@@ -3435,6 +3440,7 @@
       industry_topics_min_semesters: 0
       manual_review_items:
       - 預口試通過
+      - 英文能力證明
       courses:
       - code: CH6007
         name: 高等輸送現象

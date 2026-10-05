@@ -495,9 +495,28 @@
                        {% if r.graduate.manualReviewChecked and r.graduate.manualReviewChecked[loop.index0] %}checked{% endif %} />
                 <span>{{ item }}</span>
                 {% if r.graduate.manualReviewChecked and r.graduate.manualReviewChecked[loop.index0] %}
-                <span class="text-xs text-blue-500 whitespace-nowrap">（依預口試名單自動勾選，可手動取消）</span>
+                <span class="text-xs text-blue-500 whitespace-nowrap">（預設已通過，可手動取消）</span>
                 {% endif %}
               </label>
+              {% if item.startswith('英文能力') %}
+              <div class="mt-2 ml-6 grid grid-cols-4 gap-2 max-w-md">
+                {% for key, label in [('toeic', '多益'), ('ielts', '雅思'), ('toefl', '托福'), ('other', '其他')] %}
+                <div>
+                  <label class="block text-xs text-gray-400 mb-0.5">{{ label }}</label>
+                  <input type="text" class="english-score-input border rounded-md p-1 text-xs w-full"
+                         data-result-index="{{ r_index }}" data-score-key="{{ key }}"
+                         placeholder="{{ '證明方式' if key == 'other' else '分數' }}" />
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if item.startswith('資格考第二階段') %}
+              <div class="mt-2 ml-6 max-w-[10rem]">
+                <label class="block text-xs text-gray-400 mb-0.5">口試日期</label>
+                <input type="date" class="exam-date-input border rounded-md p-1 text-xs w-full"
+                       data-result-index="{{ r_index }}" />
+              </div>
+              {% endif %}
             </li>
             {% endfor %}
           </ul>
@@ -573,6 +592,16 @@
     const year = {{ year | tojson }};
     const fallbackName = {{ fallback_name | default('') | tojson }};
 
+    // 多益/雅思/托福/其他成績、資格考第二階段口試日期都是純前端狀態（跟manualVerdict一樣
+    // 沒有資料庫可以存），後端完全不知道這幾個欄位，先統一補上空字串起始值，Excel匯出的
+    // 地方才不用每個讀取點都另外判斷這些欄位存不存在。
+    results.forEach((r) => {
+      if (r.graduate) {
+        r.graduate.englishScores = { toeic: '', ielts: '', toefl: '', other: '' };
+        r.graduate.secondStageExamDate = '';
+      }
+    });
+
     // 螢幕上的判定結果統一用幾個固定詞（通過/未通過/未修/未完成/已認列/提醒），不混雜長句子——
     // 每一列只講一件事，「學分」欄位固定只放數字或留空，說明文字一律放最後的「備註」欄，
     // 這樣不管哪個身份（畢業資格/輔系/雙主修/碩博）匯出的Excel，同一欄位的內容形狀都一致。
@@ -582,75 +611,134 @@
 
     // 每個學生一份資料列（不含檔名/學年度——那兩個資訊改放在每份工作表最上面的標題列，
     // 不用像CSV那樣每一列都重複一次）。
-    function buildStudentRows(r) {
-      const rows = [];
-      const push = (section, item, credit, status, note) => {
-        rows.push([section, item, credit, status, note || '']);
-      };
+    // 三種身份（大學部主系／輔系雙主修／碩博）各自有自己專屬的Excel欄位結構跟主題色，不是
+    // 共用同一套樣板硬套——輔系/雙主修根本沒有學分門檻可以列，大學部/輔系雙主修完全用不到
+    // 碩博的英文能力/口試日期。一個批次（同一次上傳）身份一定一致，從resultList裡第一筆看得
+    // 出identity的結果就能判斷整批是哪種身份，連帶決定總表、每人工作表的欄位/配色。
+    function identityKind(r) {
+      if (r.graduate) return 'graduate';
+      if (r.minor) return 'minor';
+      return 'main';
+    }
 
+    function batchIdentityKind(resultList) {
+      const found = resultList.find((r) => r.graduate || r.minor);
+      return found ? identityKind(found) : 'main';
+    }
+
+    // 三種身份的欄位標題列統一用同一個顏色，不依身份變色——配色不變，只有欄位結構（見
+    // buildStudentRows/sheet.columns）依身份不同。
+    const HEADER_FILL = 'FF374151';
+
+    // 每個學生一份資料列（不含檔名/學年度——那兩個資訊改放在每份工作表最上面的標題列，
+    // 不用像CSV那樣每一列都重複一次）。三種身份的欄位形狀不一樣（見buildWorkbook()的
+    // sheet.columns），各自用自己的push()組對應形狀的陣列，不能共用同一個push。
+
+    function buildGraduateRows(r) {
+      const rows = [];
+      const push = (section, item, credit, status, note, extraCells) => {
+        rows.push(extraCells ? [section, item, credit, status, note || '', ...extraCells] : [section, item, credit, status, note || '']);
+      };
       if (r.error) {
         push('判定結果', '無法檢核這份檔案', '', '錯誤', r.error);
         return rows;
       }
+      const g = r.graduate;
+      // g.passed只代表系統自動檢查的部分（學分/課程池/領域/學期數）全部達標，不等於真的
+      // 符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，所以
+      // 「系統判定」跟「人工核定結果」是兩件事：這裡只列系統判定，人工核定結果已經印在
+      // 這張工作表最上面的標題列（見buildTitle），這裡重複列一次沒有額外資訊、只是佔位。
+      push('課程門檻（系統判定）', `${g.track_label}課程門檻`, g.total_credit, g.passed ? '達標' : '未達標', '僅計算學分／課程池／領域／學期數，不含資格考等手動項目');
+      push('學分門檻', '總學分', g.total_credit, g.credit_ok ? '達標' : '未達標', `門檻 ${g.min_total_credits} 學分`);
+      push('課程池', '六門課程池', g.pool_passed.length, g.pool_ok ? '達標' : '未達標', `門檻至少 ${g.pool_min_pass} 門`);
+      for (const c of g.pool_passed) {
+        push('課程池－已通過', `${c.code} ${c.name}`, '', '通過', '');
+      }
+      if (g.require_domain_each) {
+        push('化工／材料領域', '各領域至少一門', '', g.domain_ok ? '達標' : '未達標', `已涵蓋：${g.domains_covered.join('、') || '無'}`);
+      }
+      push('學期數', '書報討論', g.seminar_semesters, g.seminar_ok ? '達標' : '未達標', `門檻 ${g.seminar_min_semesters} 學期`);
+      push('學期數', '專題研究', g.topics_semesters, g.topics_ok ? '達標' : '未達標', `門檻 ${g.topics_min_semesters} 學期`);
+      if (g.industry_topics_min_semesters) {
+        push('學期數', '產業專題研究', g.industry_topics_semesters, g.industry_topics_ok ? '達標' : '未達標', `門檻 ${g.industry_topics_min_semesters} 學期`);
+      }
+      // 口試日期這欄只有「這個學制真的有資格考第二階段這項」才存在（例如博士班/工學博士班，
+      // 碩士班沒有這項、也不需要這欄空佔位），見buildWorkbook()的scoreColumns怎麼決定要不要
+      // 加這欄——這裡extraCells的欄位數要跟那邊算出來的欄位數對齊。
+      const hasExamItem = g.manual_review_items.some((item) => item.startsWith('資格考第二階段'));
+      g.manual_review_items.forEach((item, i) => {
+        const checked = (g.manualReviewChecked || [])[i];
+        // 「英文能力」「資格考第二階段」這兩項額外帶上結果頁輸入框打的內容，固定對應
+        // sheet.columns的scoreColumns那幾欄（多益/雅思/托福/其他，有的話再加口試日期），
+        // 不是這兩項的列就維持undefined，不佔用後面幾欄。
+        const es = g.englishScores || {};
+        let extraCells;
+        if (item.startsWith('英文能力')) {
+          extraCells = hasExamItem ? [es.toeic, es.ielts, es.toefl, es.other, ''] : [es.toeic, es.ielts, es.toefl, es.other];
+        } else if (item.startsWith('資格考第二階段')) {
+          extraCells = ['', '', '', '', g.secondStageExamDate || ''];
+        }
+        push('手動確認項目', item, '', checked ? '已確認' : '', '', extraCells);
+      });
+      return rows;
+    }
 
-        if (r.graduate) {
-          const g = r.graduate;
-          // g.passed只代表系統自動檢查的部分（學分/課程池/領域/學期數）全部達標，不等於真的
-          // 符合畢業資格——資格考、論文點數、英文能力這些manual_review_items沒有算進去，所以
-          // 「系統判定」跟「人工核定結果」是兩件事：這裡只列系統判定，人工核定結果已經印在
-          // 這張工作表最上面的標題列（見buildTitle），這裡重複列一次沒有額外資訊、只是佔位。
-          push('課程門檻（系統判定）', `${g.track_label}課程門檻`, g.total_credit, g.passed ? '達標' : '未達標', '僅計算學分／課程池／領域／學期數，不含資格考等手動項目');
-          push('學分門檻', '總學分', g.total_credit, g.credit_ok ? '達標' : '未達標', `門檻 ${g.min_total_credits} 學分`);
-          push('課程池', '六門課程池', g.pool_passed.length, g.pool_ok ? '達標' : '未達標', `門檻至少 ${g.pool_min_pass} 門`);
-          for (const c of g.pool_passed) {
-            push('課程池－已通過', `${c.code} ${c.name}`, '', '通過', '');
-          }
-          if (g.require_domain_each) {
-            push('化工／材料領域', '各領域至少一門', '', g.domain_ok ? '達標' : '未達標', `已涵蓋：${g.domains_covered.join('、') || '無'}`);
-          }
-          push('學期數', '書報討論', g.seminar_semesters, g.seminar_ok ? '達標' : '未達標', `門檻 ${g.seminar_min_semesters} 學期`);
-          push('學期數', '專題研究', g.topics_semesters, g.topics_ok ? '達標' : '未達標', `門檻 ${g.topics_min_semesters} 學期`);
-          if (g.industry_topics_min_semesters) {
-            push('學期數', '產業專題研究', g.industry_topics_semesters, g.industry_topics_ok ? '達標' : '未達標', `門檻 ${g.industry_topics_min_semesters} 學期`);
-          }
-          g.manual_review_items.forEach((item, i) => {
-            const checked = (g.manualReviewChecked || [])[i];
-            push('手動確認項目', item, '', checked ? '已確認' : '', '');
-          });
-        } else if (r.minor) {
-          const m = r.minor;
-          push('判定結果', `${m.name}資格`, '', m.passed ? '通過' : '未通過', '');
-          for (const item of m.missing_required) {
-            push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
-          }
-          for (const n of m.note_results) {
-            push('備註規則', n.text, '', NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
-          }
-        } else {
-          push('判定結果', '畢業資格', r.total_credit, r.passed ? '通過' : '未通過', `門檻 ${requiredTotal} 學分`);
-          if (!r.credit_ok) push('學分門檻', '總學分', r.total_credit, '未達標', `門檻 ${requiredTotal} 學分`);
-          if (r.required_credits) {
-            const tierStatus = r.required_credit_ok ? '達標' : '未達標';
-            push('學分門檻', '共同必修', r.required_credit_by_tier['共同必修'] || 0, tierStatus, '');
-            push('學分門檻', '院訂必修', r.required_credit_by_tier['院訂必修'] || 0, tierStatus, '');
-            push('學分門檻', '系訂必修', r.required_credit_by_tier['系訂必修'] || 0, tierStatus, '');
-            push('學分門檻', '必修學分合計', r.required_credit_total, tierStatus, `門檻 ${r.required_credits} 學分`);
-          }
-          if (r.elective_credits && !r.elective_credit_ok) push('學分門檻', '選修學分', r.elective_credit_total, '未達標', `門檻 ${r.elective_credits} 學分`);
-          for (const item of r.missing_required) {
-            push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
-          }
-          for (const u of r.unmet_categories) {
-            push('教務處未完成項目', u.name, '', '未完成', `應修 ${u.required_credit} 學分／${u.required_count} 科目，實修 ${u.actual_credit} 學分／${u.actual_count} 科目`);
-          }
-          for (const n of r.note_results) {
-            push('備註規則', n.text, '', NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
-          }
-          for (const c of r.elective_courses) {
-            push('已認列選修學分課程', `${c.code} ${c.name}`, c.credit, '已認列', '');
-          }
+    function buildMinorRows(r) {
+      // 輔系/雙主修沒有學分門檻子項（missing_required/note_results才是真正會有內容的部分），
+      // 硬塞一個永遠空白的「學分」欄沒有意義，欄位形狀改成項目/狀態/備註三欄就好。
+      const rows = [];
+      const push = (item, status, note) => rows.push([item, status, note || '']);
+      if (r.error) {
+        push('無法檢核這份檔案', '錯誤', r.error);
+        return rows;
+      }
+      const m = r.minor;
+      push(`${m.name}資格`, m.passed ? '通過' : '未通過', '');
+      for (const item of m.missing_required) {
+        push(item.name, '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
+      }
+      for (const n of m.note_results) {
+        push(n.text, NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
       }
       return rows;
+    }
+
+    function buildMainRows(r) {
+      const rows = [];
+      const push = (section, item, credit, status, note) => rows.push([section, item, credit, status, note || '']);
+      if (r.error) {
+        push('判定結果', '無法檢核這份檔案', '', '錯誤', r.error);
+        return rows;
+      }
+      push('判定結果', '畢業資格', r.total_credit, r.passed ? '通過' : '未通過', `門檻 ${requiredTotal} 學分`);
+      if (!r.credit_ok) push('學分門檻', '總學分', r.total_credit, '未達標', `門檻 ${requiredTotal} 學分`);
+      if (r.required_credits) {
+        const tierStatus = r.required_credit_ok ? '達標' : '未達標';
+        push('學分門檻', '共同必修', r.required_credit_by_tier['共同必修'] || 0, tierStatus, '');
+        push('學分門檻', '院訂必修', r.required_credit_by_tier['院訂必修'] || 0, tierStatus, '');
+        push('學分門檻', '系訂必修', r.required_credit_by_tier['系訂必修'] || 0, tierStatus, '');
+        push('學分門檻', '必修學分合計', r.required_credit_total, tierStatus, `門檻 ${r.required_credits} 學分`);
+      }
+      if (r.elective_credits && !r.elective_credit_ok) push('學分門檻', '選修學分', r.elective_credit_total, '未達標', `門檻 ${r.elective_credits} 學分`);
+      for (const item of r.missing_required) {
+        push('未通過科目', item.name, '', '未修', [item.missing_codes.join('、'), item.note].filter(Boolean).join('；'));
+      }
+      for (const u of r.unmet_categories) {
+        push('教務處未完成項目', u.name, '', '未完成', `應修 ${u.required_credit} 學分／${u.required_count} 科目，實修 ${u.actual_credit} 學分／${u.actual_count} 科目`);
+      }
+      for (const n of r.note_results) {
+        push('備註規則', n.text, '', NOTE_STATUS_LABELS[n.status] || n.status, n.detail || '');
+      }
+      for (const c of r.elective_courses) {
+        push('已認列選修學分課程', `${c.code} ${c.name}`, c.credit, '已認列', '');
+      }
+      return rows;
+    }
+
+    function buildStudentRows(r, kind) {
+      if (kind === 'graduate') return buildGraduateRows(r);
+      if (kind === 'minor') return buildMinorRows(r);
+      return buildMainRows(r);
     }
 
     // 碩博班的最終結果不再是人工勾選決定，改成純粹看系統能自動檢查的部分（學分/課程池/領域/
@@ -706,7 +794,6 @@
       '不適用': { bg: 'FFFFEB9C', font: 'FF9C6500' },
       '尚未確認': { bg: 'FFFFEB9C', font: 'FF9C6500' },
     };
-    const HEADER_FILL = 'FF374151';
     const TITLE_FILL_OK = 'FF16A34A';
     const TITLE_FILL_FAIL = 'FFDC2626';
     // 尚未人工核定時這條標題列是故意留白讓人手寫的空間，不是在警告什麼事，所以用中性灰色，
@@ -794,6 +881,8 @@
     async function buildWorkbook(resultList) {
       const workbook = new ExcelJS.Workbook();
       const usedNames = new Set();
+      // 一個批次（同一次上傳）身份一定一致，整個工作簿用同一個kind決定欄位結構。
+      const kind = batchIdentityKind(resultList);
 
       // 多位同學一起匯出時，最前面加一張「總表」一眼看完全部人的通過狀態——只匯出單一個人時
       // 不需要，那份資料自己那張工作表就是全部內容了，多一張總表只是多繞一手。
@@ -803,6 +892,14 @@
           views: [{ state: 'frozen', ySplit: 1 }],
           pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
         });
+        // 必修科目未通過：大學部/輔系雙主修都有（missing_required），碩博沒有；教務處未完成
+        // 項目：只有大學部主系才有（unmet_categories），輔系雙主修/碩博都永遠空白；英文成績/
+        // 預口試英文能力確認狀態：只有碩博才有——欄位依整批的身份（kind）決定要不要出現，
+        // 不要硬塞一個永遠空白的欄位進總表。資格考第二階段口試日期是博士班才有的細節欄位，
+        // 總表不需要（有需要再點開那個人自己的工作表看），所以總表沒有這欄，只有每人工作表有。
+        const includeMissingRequiredCol = kind !== 'graduate';
+        const includeUnmetCategoriesCol = kind === 'main';
+        const includeEnglishExamCols = kind === 'graduate';
         summarySheet.columns = [
           { header: '#', key: 'idx', width: 5 },
           { header: resultList.some((r) => r.student_id) ? '學號' : '檔案名稱', key: 'filename', width: 34 },
@@ -810,36 +907,79 @@
           { header: '狀態', key: 'status', width: 10 },
           { header: '總學分', key: 'credit', width: 10 },
           { header: '備註', key: 'flags', width: 22 },
-          { header: '必修科目未通過', key: 'missingRequired', width: 36 },
-          { header: '教務處未完成項目', key: 'unmetCategories', width: 30 },
+          ...(includeMissingRequiredCol ? [{ header: '必修科目未通過', key: 'missingRequired', width: 36 }] : []),
+          ...(includeUnmetCategoriesCol ? [{ header: '教務處未完成項目', key: 'unmetCategories', width: 30 }] : []),
+          ...(includeEnglishExamCols ? [
+            { header: '多益成績', key: 'toeic', width: 12 },
+            { header: '雅思成績', key: 'ielts', width: 12 },
+            { header: '托福成績', key: 'toefl', width: 12 },
+            { header: '其他證明', key: 'other', width: 16 },
+            { header: '預口試', key: 'predefense', width: 10 },
+            { header: '英文能力', key: 'english', width: 10 },
+          ] : []),
         ];
         summarySheet.getRow(1).eachCell((cell) => {
           cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
           cell.alignment = { vertical: 'middle' };
         });
+        // 「預口試」「英文能力」這兩項手動確認項目本身有沒有勾（已確認／尚未確認），跟多益/
+        // 雅思/托福成績是不同的兩件事——分數欄只是佐證文件的空白格，這裡才是確認狀態本身。
+        const manualReviewStatus = (r, prefix) => {
+          const items = (r.graduate && r.graduate.manual_review_items) || [];
+          const idx = items.findIndex((item) => item.startsWith(prefix));
+          if (idx === -1) return '';
+          return (r.graduate.manualReviewChecked || [])[idx] ? '已確認' : '';
+        };
         resultList.forEach((r, i) => {
           const status = buildOverallStatus(r);
           const parts = buildReasonParts(r);
-          const row = summarySheet.addRow([
+          const es = (r.graduate && r.graduate.englishScores) || {};
+          const rowValues = [
             i + 1, displayLabel(r), buildIdentityLabel(r), status, r.error ? '' : r.total_credit,
-            parts.flags, parts.missingRequired, parts.unmetCategories,
-          ]);
+            parts.flags,
+          ];
+          if (includeMissingRequiredCol) rowValues.push(parts.missingRequired);
+          if (includeUnmetCategoriesCol) rowValues.push(parts.unmetCategories);
+          if (includeEnglishExamCols) {
+            rowValues.push(
+              es.toeic || '', es.ielts || '', es.toefl || '', es.other || '',
+              manualReviewStatus(r, '預口試'), manualReviewStatus(r, '英文能力'),
+            );
+          }
+          const row = summarySheet.addRow(rowValues);
           const style = STATUS_STYLES[status];
           if (style) {
             const statusCell = row.getCell(4);
             statusCell.font = { bold: true, color: { argb: style.font } };
             statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
           }
-          // 必修科目未通過／教務處未完成項目這兩欄只要有內容，淡黃底讓人掃過總表就能看出誰
-          // 這項有問題，不用逐格讀文字才知道是不是空的──跟「尚未確認」共用同一種提醒色
-          // （見STATUS_STYLES），空字串（沒問題）維持白底不上色。
-          [7, 8].forEach((col) => {
+          // 必修科目未通過／教務處未完成項目這兩欄（有出現的話）只要有內容，淡黃底讓人掃過
+          // 總表就能看出誰這項有問題，不用逐格讀文字才知道是不是空的──跟「尚未確認」共用
+          // 同一種提醒色（見STATUS_STYLES），空字串（沒問題）維持白底不上色。
+          let col = 7;
+          if (includeMissingRequiredCol) {
             const cell = row.getCell(col);
-            if (cell.value) {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
-            }
-          });
+            if (cell.value) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+            col += 1;
+          }
+          if (includeUnmetCategoriesCol) {
+            const cell = row.getCell(col);
+            if (cell.value) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+            col += 1;
+          }
+          // 預口試／英文能力確認狀態：已確認的話套用跟每人工作表「手動確認項目」區塊一樣的
+          // 綠色（STATUS_STYLES['已確認']），一眼就能看出誰還沒確認（空白）。
+          if (includeEnglishExamCols) {
+            col += 4; // 跳過多益/雅思/托福/其他這四欄分數
+            [col, col + 1].forEach((c) => {
+              const cell = row.getCell(c);
+              if (cell.value === '已確認') {
+                cell.font = { bold: true, color: { argb: STATUS_STYLES['已確認'].font } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATUS_STYLES['已確認'].bg } };
+              }
+            });
+          }
           row.eachCell((cell) => {
             cell.border = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
             cell.alignment = { vertical: 'top', wrapText: true };
@@ -861,17 +1001,48 @@
           views: [{ state: 'frozen', ySplit: 2 }],
           pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: 'landscape' },
         });
-        sheet.columns = [
-          { header: '區塊', key: 'section', width: 18 },
-          { header: '項目', key: 'item', width: 44 },
-          { header: '學分', key: 'credit', width: 8 },
-          { header: '狀態', key: 'status', width: 10 },
-          { header: '備註', key: 'note', width: 56 },
-        ];
+
+        // 輔系/雙主修欄位結構比大學部/碩博簡單很多（沒有學分門檻可以列），三種身份各自的
+        // 欄位形狀跟statusCol（狀態欄在第幾欄，決定要上色的是哪一格）都不一樣。
+        let columns;
+        let statusCol;
+        if (kind === 'minor') {
+          columns = [
+            { header: '項目', key: 'item', width: 48 },
+            { header: '狀態', key: 'status', width: 10 },
+            { header: '備註', key: 'note', width: 56 },
+          ];
+          statusCol = 2;
+        } else {
+          // 碩博的「英文能力」「資格考第二階段」這兩項手動確認項目在畢業前通常要附多益/雅思/
+          // 托福其中一種成績佐證、或登記口試日期，系統沒辦法自動判斷，這幾欄讀的是結果頁對應
+          // 項目下方輸入框打的內容（見english-score-input/exam-date-input的事件監聽），不影響
+          // 程式判定——只有碩博工作表才有。口試日期欄只在這個學制真的有「資格考第二階段」
+          // 這項manual_review_items時才加（例如博士班/工學博士班），碩士班沒有這項、不需要
+          // 這欄空佔位。
+          const hasExamItem = !!(r.graduate && r.graduate.manual_review_items.some((item) => item.startsWith('資格考第二階段')));
+          const scoreColumns = kind === 'graduate' ? [
+            { header: '多益成績', key: 'toeic', width: 12 },
+            { header: '雅思成績', key: 'ielts', width: 12 },
+            { header: '托福成績', key: 'toefl', width: 12 },
+            { header: '其他證明', key: 'other', width: 16 },
+            ...(hasExamItem ? [{ header: '資格考第二階段口試日期', key: 'examDate', width: 20 }] : []),
+          ] : [];
+          columns = [
+            { header: '區塊', key: 'section', width: 18 },
+            { header: '項目', key: 'item', width: 44 },
+            { header: '學分', key: 'credit', width: 8 },
+            { header: '狀態', key: 'status', width: 10 },
+            { header: '備註', key: 'note', width: 56 },
+            ...scoreColumns,
+          ];
+          statusCol = 4;
+        }
+        sheet.columns = columns;
 
         const title = buildTitle(r);
         sheet.insertRow(1, [title.text]);
-        sheet.mergeCells(1, 1, 1, 5);
+        sheet.mergeCells(1, 1, 1, columns.length);
         const titleCell = sheet.getCell(1, 1);
         titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
         titleCell.alignment = { vertical: 'middle' };
@@ -888,11 +1059,11 @@
           cell.alignment = { vertical: 'middle' };
         });
 
-        for (const row of buildStudentRows(r)) {
+        for (const row of buildStudentRows(r, kind)) {
           const excelRow = sheet.addRow(row);
-          const style = STATUS_STYLES[row[3]];
+          const style = STATUS_STYLES[row[statusCol - 1]];
           if (style) {
-            const statusCell = excelRow.getCell(4);
+            const statusCell = excelRow.getCell(statusCol);
             statusCell.font = { bold: true, color: { argb: style.font } };
             statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
           }
@@ -944,6 +1115,27 @@
           r.graduate.manualReviewChecked = r.graduate.manual_review_items.map(() => false);
         }
         r.graduate.manualReviewChecked[Number(cb.dataset.itemIndex)] = cb.checked;
+      });
+    });
+
+    // 多益/雅思/托福/其他成績欄位，打字就直接寫回results陣列對應那筆的graduate.englishScores
+    // （見上面results.forEach的初始化），Excel匯出時（buildStudentRows/總表）讀的是同一份，
+    // 不用另外同步。
+    document.querySelectorAll('.english-score-input').forEach((input) => {
+      input.addEventListener('input', () => {
+        const r = results[Number(input.dataset.resultIndex)];
+        if (!r || !r.graduate) return;
+        r.graduate.englishScores[input.dataset.scoreKey] = input.value;
+      });
+    });
+
+    // 資格考第二階段「研究計畫」口試日期，打字（選日期）就直接寫回results陣列對應那筆的
+    // graduate.secondStageExamDate，邏輯跟上面的英文成績欄位一樣。
+    document.querySelectorAll('.exam-date-input').forEach((input) => {
+      input.addEventListener('input', () => {
+        const r = results[Number(input.dataset.resultIndex)];
+        if (!r || !r.graduate) return;
+        r.graduate.secondStageExamDate = input.value;
       });
     });
 

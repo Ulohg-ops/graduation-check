@@ -1,5 +1,4 @@
 import copy
-import csv
 import io
 import os
 import re
@@ -8,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-import openpyxl
 import pdfplumber
 import yaml
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -56,11 +54,18 @@ GRADUATE_RULES_FILE = DATA_DIR / "graduate_rules.yaml"
 # 匯錯檔案的話可以手動把這個複製回 rules.yaml / graduate_rules.yaml 救回來。
 RULES_BACKUP_FILE = DATA_DIR / "rules.yaml.bak"
 GRADUATE_RULES_BACKUP_FILE = DATA_DIR / "graduate_rules.yaml.bak"
-# 預口試已通過名單（學號清單，見load_predefense_ids）：碩博成績單上傳時如果抓到的學號在這份
-# 名單裡，結果頁「預口試通過」那個手動確認勾選框會自動幫使用者打勾。沒有對應的「bundle預設
-# 版本」可以seed——這份名單本來就是系上自己維護、隨時間變動的資料，第一次執行時是空的很正常，
-# 不像rules.yaml需要一份起始規則才能用。
-PREDEFENSE_FILE = DATA_DIR / "predefense_passed.yaml"
+# 手動確認項目裡「預口試通過」「英文能力」這兩類有名單制自動判斷：項目文字開頭符合下面哪個
+# 前綴，就比對哪一份名單——學號「不在」名單裡預設當作已通過（勾選框自動打勾），名單上的學號
+# 才是還沒通過的例外。多數人最後都會通過，用「記錄還沒過的少數人」取代「記錄已經過的大多數
+# 人」，辦公人員平常只要處理例外、不用每個人都手動勾過一次，見_build_graduate_entry的說明。
+MANUAL_REVIEW_ROSTER_PREFIXES = {
+    "predefense": "預口試",
+    "english": "英文能力",
+}
+# 沒有對應的「bundle預設版本」可以seed——這份名單本來就是系上自己維護、隨時間變動的資料，
+# 第一次執行時是空的（=沒有任何例外、全部人都當作已通過）很正常，不像rules.yaml需要一份
+# 起始規則才能用。
+MANUAL_REVIEW_EXCEPTIONS_FILE = DATA_DIR / "manual_review_exceptions.yaml"
 
 # DATA_DIR裡還沒有這兩個檔案時，把bundle裡打包的預設版本複製過去當起始資料——不然使用者
 # 第一次雙擊執行檔，/admin會找不到任何規則可以編輯。「還沒有檔案」除了真正第一次執行之外，
@@ -98,19 +103,40 @@ def save_rules(rules: dict) -> None:
         yaml.safe_dump(rules, f, allow_unicode=True, sort_keys=False)
 
 
-def load_predefense_ids() -> set:
-    """讀取預口試已通過的學號名單（見PREDEFENSE_FILE說明）。還沒上傳過名單時檔案不存在，
-    回傳空集合，呼叫端不用另外判斷檔案在不在。"""
-    if not PREDEFENSE_FILE.exists():
-        return set()
-    with open(PREDEFENSE_FILE, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or []
-    return {str(x).strip() for x in data if str(x).strip()}
+def load_manual_review_exceptions() -> dict:
+    """讀取「還沒通過」名單（見MANUAL_REVIEW_EXCEPTIONS_FILE說明），回傳{roster_key: set(學號)}。
+    還沒建立過檔案、或某個roster_key底下還沒有任何資料時，該roster是空集合——代表沒有例外，
+    全部人都當作已通過，呼叫端不用另外判斷檔案在不在。
+    """
+    raw = {}
+    if MANUAL_REVIEW_EXCEPTIONS_FILE.exists():
+        with open(MANUAL_REVIEW_EXCEPTIONS_FILE, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+    return {
+        key: {str(x).strip() for x in (raw.get(key) or []) if str(x).strip()}
+        for key in MANUAL_REVIEW_ROSTER_PREFIXES
+    }
 
 
-def save_predefense_ids(ids: set) -> None:
-    with open(PREDEFENSE_FILE, "w", encoding="utf-8") as f:
-        yaml.safe_dump(sorted(ids), f, allow_unicode=True)
+def save_manual_review_exceptions(data: dict) -> None:
+    with open(MANUAL_REVIEW_EXCEPTIONS_FILE, "w", encoding="utf-8") as f:
+        yaml.safe_dump(
+            {key: sorted(data.get(key) or []) for key in MANUAL_REVIEW_ROSTER_PREFIXES},
+            f,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+
+
+def _manual_review_roster_key(item_text: str) -> Optional[str]:
+    """判斷一筆manual_review_items的文字屬於哪一份名單制roster（見MANUAL_REVIEW_ROSTER_
+    PREFIXES），都不符合就回傳None——這種項目（資格考、論文點數等）沒有名單可以自動判斷，
+    維持舊行為、預設不勾，要辦公人員自己逐項手動確認。
+    """
+    for key, prefix in MANUAL_REVIEW_ROSTER_PREFIXES.items():
+        if item_text.startswith(prefix):
+            return key
+    return None
 
 
 _CREDIT_LABELS = {"學分數", "學分"}
@@ -547,8 +573,8 @@ _AUDIT_STUDENT_ID_RE = re.compile(r"學號\s*[：:]\s*(\d+)")
 
 
 def _extract_student_id(pdf: pdfplumber.PDF) -> Optional[str]:
-    """抓這份成績單是哪個學生的學號，給「學生總覽」顯示、預口試名單自動比對用（見PREDEFENSE_
-    FILE的說明）。兩種格式的抓法不一樣：
+    """抓這份成績單是哪個學生的學號，給「學生總覽」顯示、手動確認項目名單制自動比對用
+    （見MANUAL_REVIEW_ROSTER_PREFIXES的說明）。兩種格式的抓法不一樣：
 
     1. 「畢業審核紀錄表」：第一頁最上面就有一行「學號：114324076、姓名：OOO、系所：OOO」，
        直接用正規表達式從文字抓就好。
@@ -733,12 +759,19 @@ def _build_graduate_entry(filename: str, parsed: dict, track_key: str, year_data
     courses_display = _mark_counts_as_fail(courses_display)
 
     manual_review_items = track.get("manual_review_items", [])
-    # 學號有在預口試已通過名單裡的話，「預口試通過」那一項手動確認勾選框自動幫忙打勾，省得
-    # 辦公人員每份都要手動點一次（見_extract_student_id兩種格式各自怎麼抓）。抓不到學號時
-    # parsed["student_id"]是None，直接跳過，不會因為抓不到學號就出錯或誤判。
+    # 預口試通過／英文能力這兩項有名單制自動判斷（見MANUAL_REVIEW_ROSTER_PREFIXES說明）：
+    # 預設當作已通過（自動打勾），只有學號出現在「還沒通過」名單裡才不勾，省得辦公人員每份
+    # 都要手動點一次（見_extract_student_id兩種格式各自怎麼抓）。抓不到學號、或項目沒有對應
+    # 的名單制（例如資格考、論文點數）就維持舊行為不自動勾選，不會因為抓不到學號就誤判。
     student_id = parsed.get("student_id")
-    predefense_passed = bool(student_id) and student_id in load_predefense_ids()
-    manual_review_checked = [predefense_passed and item.startswith("預口試") for item in manual_review_items]
+    exceptions = load_manual_review_exceptions()
+    manual_review_checked = []
+    for item in manual_review_items:
+        roster_key = _manual_review_roster_key(item)
+        if roster_key is None or not student_id:
+            manual_review_checked.append(False)
+        else:
+            manual_review_checked.append(student_id not in exceptions[roster_key])
 
     return {
         "filename": filename,
@@ -1855,7 +1888,6 @@ def _graduate_admin_context(
         "grad_tracks": tracks,
         "edit_grad_track": edit_grad_track,
         "edit_grad_course_index": edit_grad_course,
-        "predefense_count": len(load_predefense_ids()),
     }
 
 
@@ -2036,127 +2068,55 @@ async def admin_graduate_manual_review_delete(year: str = Form(...), track: str 
     return RedirectResponse(f"/admin/programs?tab={track}&grad_year={year}", status_code=303)
 
 
-def _decode_csv_bytes(content: bytes) -> str:
-    """CSV可能是UTF-8（網頁另存）也可能是Big5/cp950（Excel在繁中Windows預設另存成CSV常是這種
-    編碼），用errors='ignore'硬解容易把中文字解成亂碼卻不報錯、沒辦法事後偵測出來，所以依序
-    嚴格嘗試常見編碼，都失敗才退回utf-8+ignore（至少數字、英文字母不會受影響，只有中文字可能
-    跑掉，但學號本身是純數字，不影響比對結果）。
+@app.get("/admin/graduate/manual_review_exceptions", response_class=HTMLResponse)
+async def admin_graduate_manual_review_exceptions_page(request: Request):
+    """「預口試通過」「英文能力」這兩類手動確認項目的名單制管理頁——每一類各自一份「還沒
+    通過」名單，看目前名單有哪些學號、單筆新增/刪除、清空全部。這份名單是所有學制、所有
+    學年度共用（這兩項都是學生個人的里程碑，跟報考哪個學制、哪年入學無關），不像課程池/
+    manual_review_items需要分學制維護；跟規則同步拆成/admin/sync一樣，獨立一頁，不用擠在
+    碩博設定那個分頁籤裡。
     """
-    for encoding in ("utf-8-sig", "utf-8", "cp950", "big5"):
-        try:
-            return content.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return content.decode("utf-8", errors="ignore")
-
-
-def _ids_from_rows(rows: list) -> set:
-    """從一份「列的清單」（每列是字串cell的list，CSV跟Excel讀出來最後都轉成這個共同形狀）
-    抓學號，不假設學號一定在第一欄：先找表頭列裡哪一欄寫「學號」，找得到就用那一欄；找不到
-    表頭（例如整份檔案就只有學號、沒有欄位名稱那一列）才退回「用第一欄」。Excel常把純數字
-    欄位存成浮點數，像「108324010」存完再打開會變「108324010.0」，這裡順便把這種尾巴去掉。
-    """
-    rows = [row for row in rows if any((cell or "").strip() for cell in row)]
-    if not rows:
-        return set()
-
-    col_index = 0
-    header = rows[0]
-    for i, cell in enumerate(header):
-        if (cell or "").strip() == "學號":
-            col_index = i
-            rows = rows[1:]
-            break
-
-    ids = set()
-    for row in rows:
-        if col_index >= len(row):
-            continue
-        value = (row[col_index] or "").strip()
-        if value.endswith(".0") and value[:-2].isdigit():
-            value = value[:-2]
-        if value and value != "學號":
-            ids.add(value)
-    return ids
-
-
-def _parse_predefense_csv(content: bytes) -> set:
-    return _ids_from_rows(list(csv.reader(_decode_csv_bytes(content).splitlines())))
-
-
-def _parse_predefense_xlsx(content: bytes) -> set:
-    """跟CSV共用同一套「抓學號欄位」邏輯（見_ids_from_rows），只是先把.xlsx的儲存格值轉成
-    字串——openpyxl讀出來的學號如果儲存格格式是「數字」會是int/float而不是字串，int可以直接
-    str()，float要先判斷是不是整數值（123.0要變成"123"而不是"123.0"，不然前面補的.0裁切
-    規則就用不到int，這裡一次轉乾淨）。只讀第一張工作表，夠用、也不用讓使用者多選分頁。
-    """
-    workbook = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
-    sheet = workbook.worksheets[0]
-    rows = []
-    for row in sheet.iter_rows(values_only=True):
-        cells = []
-        for v in row:
-            if v is None:
-                cells.append("")
-            elif isinstance(v, float) and v.is_integer():
-                cells.append(str(int(v)))
-            else:
-                cells.append(str(v))
-        rows.append(cells)
-    return _ids_from_rows(rows)
-
-
-def _parse_predefense_file(filename: str, content: bytes) -> set:
-    if (filename or "").lower().endswith((".xlsx", ".xlsm")):
-        return _parse_predefense_xlsx(content)
-    return _parse_predefense_csv(content)
-
-
-@app.get("/admin/graduate/predefense", response_class=HTMLResponse)
-async def admin_graduate_predefense_page(request: Request):
-    """預口試已通過名單的獨立管理頁——看目前名單有哪些學號、單筆新增/刪除，或整份CSV覆蓋匯入。
-    跟規則同步拆成/admin/sync一樣，這個清單管理也是獨立一頁，不用擠在碩博設定那個分頁籤裡。
-    """
+    exceptions = load_manual_review_exceptions()
+    rosters = [
+        {"key": key, "label": label, "ids": sorted(exceptions[key])}
+        for key, label in MANUAL_REVIEW_ROSTER_PREFIXES.items()
+    ]
     return templates.TemplateResponse(
-        request, "admin_predefense.html", {"predefense_ids": sorted(load_predefense_ids())}
+        request, "admin_manual_review_exceptions.html", {"rosters": rosters}
     )
 
 
-@app.post("/admin/graduate/predefense/import")
-async def admin_graduate_predefense_import(file: UploadFile = File(...)):
-    """上傳預口試已通過學生的學號名單（CSV或Excel都收，見_parse_predefense_file怎麼判斷
-    格式、_ids_from_rows怎麼抓欄位），整份覆蓋掉現有名單——跟規則匯入一樣是「整份覆蓋」而
-    不是累加，避免舊名單裡已經不適用的學號一直留著。這份名單是四個學制、所有學年度共用同
-    一份（預口試通過是學生個人的里程碑，跟報考哪個學制、哪年入學無關），不像課程池/
-    manual_review_items需要分學制維護。
-    """
-    ids = _parse_predefense_file(file.filename, await file.read())
-    save_predefense_ids(ids)
-    return RedirectResponse("/admin/graduate/predefense", status_code=303)
-
-
-@app.post("/admin/graduate/predefense/add")
-async def admin_graduate_predefense_add(student_id: str = Form(...)):
+@app.post("/admin/graduate/manual_review_exceptions/add")
+async def admin_graduate_manual_review_exceptions_add(
+    roster_key: str = Form(...), student_id: str = Form(...)
+):
     student_id = student_id.strip()
-    if student_id:
-        ids = load_predefense_ids()
-        ids.add(student_id)
-        save_predefense_ids(ids)
-    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+    if student_id and roster_key in MANUAL_REVIEW_ROSTER_PREFIXES:
+        exceptions = load_manual_review_exceptions()
+        exceptions[roster_key].add(student_id)
+        save_manual_review_exceptions(exceptions)
+    return RedirectResponse("/admin/graduate/manual_review_exceptions", status_code=303)
 
 
-@app.post("/admin/graduate/predefense/delete")
-async def admin_graduate_predefense_delete(student_id: str = Form(...)):
-    ids = load_predefense_ids()
-    ids.discard(student_id)
-    save_predefense_ids(ids)
-    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+@app.post("/admin/graduate/manual_review_exceptions/delete")
+async def admin_graduate_manual_review_exceptions_delete(
+    roster_key: str = Form(...), student_id: str = Form(...)
+):
+    if roster_key in MANUAL_REVIEW_ROSTER_PREFIXES:
+        exceptions = load_manual_review_exceptions()
+        exceptions[roster_key].discard(student_id)
+        save_manual_review_exceptions(exceptions)
+    return RedirectResponse("/admin/graduate/manual_review_exceptions", status_code=303)
 
 
-@app.post("/admin/graduate/predefense/clear")
-async def admin_graduate_predefense_clear():
-    save_predefense_ids(set())
-    return RedirectResponse("/admin/graduate/predefense", status_code=303)
+@app.post("/admin/graduate/manual_review_exceptions/clear")
+async def admin_graduate_manual_review_exceptions_clear(roster_key: str = Form(...)):
+    if roster_key in MANUAL_REVIEW_ROSTER_PREFIXES:
+        exceptions = load_manual_review_exceptions()
+        exceptions[roster_key] = set()
+        save_manual_review_exceptions(exceptions)
+    return RedirectResponse("/admin/graduate/manual_review_exceptions", status_code=303)
+
 
 
 @app.post("/admin/graduate/year/add")

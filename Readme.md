@@ -4,7 +4,7 @@
 
 ## 安裝與啟動（Windows）
 
-不需要安裝 Python：到 [Releases 頁面](https://github.com/Ulohg-ops/graduation-check/releases/tag/latest) 下載單一檔案 `GraduationCheck.exe`，不用解壓縮，雙擊即可——瀏覽器會自動開啟系統首頁，關掉跳出來的小視窗（或按裡面的「結束系統」）就會停止系統。第一次啟動會比之後慢個幾秒（要先解壓縮內建的程式內容到暫存資料夾），是正常現象。這個檔案是 GitHub Actions 每次推到 main 後自動重新打包、覆蓋同一個連結，永遠是最新版；應修科目表規則存在使用者電腦的 `%APPDATA%\GraduationCheck\` 資料夾裡，但**每次換成新打包的版本時這個資料夾會被整個清空、重設回系統內建的原廠規則**（含預口試名單），後台調整過的內容不會保留，有需要的話請自行先備份（見下方「規則同步」）。
+不需要安裝 Python：到 [Releases 頁面](https://github.com/Ulohg-ops/graduation-check/releases/tag/latest) 下載單一檔案 `GraduationCheck.exe`，不用解壓縮，雙擊即可——瀏覽器會自動開啟系統首頁，關掉跳出來的小視窗（或按裡面的「結束系統」）就會停止系統。第一次啟動會比之後慢個幾秒（要先解壓縮內建的程式內容到暫存資料夾），是正常現象。這個檔案是 GitHub Actions 每次推到 main 後自動重新打包、覆蓋同一個連結，永遠是最新版；應修科目表規則存在使用者電腦的 `%APPDATA%\GraduationCheck\` 資料夾裡，但**每次換成新打包的版本時這個資料夾會被整個清空、重設回系統內建的原廠規則**（含預口試／英文能力還沒通過名單），後台調整過的內容不會保留，有需要的話請自行先備份（見下方「規則同步」）。
 
 其他系統（Mac/Linux），或想直接跑原始碼：
 
