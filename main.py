@@ -54,13 +54,17 @@ GRADUATE_RULES_FILE = DATA_DIR / "graduate_rules.yaml"
 # 匯錯檔案的話可以手動把這個複製回 rules.yaml / graduate_rules.yaml 救回來。
 RULES_BACKUP_FILE = DATA_DIR / "rules.yaml.bak"
 GRADUATE_RULES_BACKUP_FILE = DATA_DIR / "graduate_rules.yaml.bak"
-# 手動確認項目裡「預口試通過」「英文能力」這兩類有名單制自動判斷：項目文字開頭符合下面哪個
-# 前綴，就比對哪一份名單——學號「不在」名單裡預設當作已通過（勾選框自動打勾），名單上的學號
-# 才是還沒通過的例外。多數人最後都會通過，用「記錄還沒過的少數人」取代「記錄已經過的大多數
-# 人」，辦公人員平常只要處理例外、不用每個人都手動勾過一次，見_build_graduate_entry的說明。
+# 手動確認項目裡「預口試通過」「英文能力證明」這兩類有名單制自動判斷：項目文字開頭符合下面
+# 哪個前綴，就比對哪一份名單——學號「不在」名單裡預設當作已通過（勾選框自動打勾），名單上的
+# 學號才是還沒通過的例外。多數人最後都會通過，用「記錄還沒過的少數人」取代「記錄已經過的
+# 大多數人」，辦公人員平常只要處理例外、不用每個人都手動勾過一次，見_build_graduate_entry
+# 的說明。「english」這個前綴刻意用「英文能力證明」（碩士班那項的完整文字）而不是單純「英文
+# 能力」：博士班／工學博士班也有「英文能力：參加國際會議口頭報告...」這項，但規定內容不一樣
+# （條件複雜很多，不是單純一張證明就能判斷），不該套用同一份名單自動勾，維持預設不勾、要
+# 辦公人員自己逐項手動確認。
 MANUAL_REVIEW_ROSTER_PREFIXES = {
     "predefense": "預口試",
-    "english": "英文能力",
+    "english": "英文能力證明",
 }
 # 沒有對應的「bundle預設版本」可以seed——這份名單本來就是系上自己維護、隨時間變動的資料，
 # 第一次執行時是空的（=沒有任何例外、全部人都當作已通過）很正常，不像rules.yaml需要一份
@@ -263,7 +267,7 @@ def _extract_unmet_categories(pdf: pdfplumber.PDF) -> list:
     return unmet
 
 
-_SUBSTITUTION_NOTE_RE = re.compile(r"抵[修免]\s*\[([^\]]*)\]")
+_SUBSTITUTION_NOTE_RE = re.compile(r"(?:抵[修免]|免修)\s*\[([^\]]*)\]")
 _COURSE_CODE_SHAPE_RE = re.compile(r"[A-Z]{2,3}\d{3,5}")
 
 
@@ -273,6 +277,10 @@ def _parse_substitutions(courses: list) -> dict:
     教務處的「判定」欄本身就已經把這個算完成了，只是那門課在成績單上的課號還是原系所的
     （CM1002），不是應修科目表登記的課號（EG1007）——我們自己比對應修科目表時只看課號，
     不知道CM1002其實就是在滿足EG1007，會誤判EG1007還沒通過，這份對照表就是要接住這個情況。
+
+    輔系/雙主修學生（主系是別系）的成績單則常見「※免修[CH1023]」這種備註，寫法不一樣但意思
+    相同：主系修過的課（例如機械系的ME2051材料科學）被拿來抵免輔系應修科目表裡的CH1023，
+    一樣要併入這份對照表，不然輔系判定會誤判CH1023還沒修過。
 
     回傳 {原課號: [被頂替滿足的課號, ...]}，只收通過的課、且備註裡的課號要符合課號格式
     （避免抓到備註裡其他不相干的文字）。一個備註理論上可能同時列多個課號（不常見，但格式
@@ -324,7 +332,11 @@ def parse_transcript(pdf_bytes: bytes) -> dict:
         for c in deduped.values()
         if c["passed"]
     ]
-    substitutions = _parse_substitutions(deduped.values())
+    # 用原始courses（不是deduped）掃描抵修/免修備註：同一課號有時會在成績單裡出現兩筆
+    # （例如輔系學生的ME2051材料科學，同時出現在主系課程清單跟輔系抵免清單裡，分別帶著
+    # 空備註跟「※免修[CH1023]」備註），deduped只留其中一筆、不保證留下的是有備註的那筆，
+    # 用原始清單才不會漏看備註只因為它剛好被另一筆同課號、沒有備註的紀錄蓋過。
+    substitutions = _parse_substitutions(courses)
     return {
         "courses": courses,
         "total_credit": total_credit,
